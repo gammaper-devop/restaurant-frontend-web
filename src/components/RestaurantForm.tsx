@@ -1,0 +1,287 @@
+import React, { useState } from 'react';
+import { Button, Input } from './ui';
+import { useCategories, useRestaurantMutations } from '../hooks';
+import type { Category } from '../types';
+
+interface RestaurantFormData {
+  name: string;
+  phone: string;
+  logo: string;
+  categoryId: string;
+}
+
+interface RestaurantFormProps {
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) => {
+  const { data: categories, loading: categoriesLoading } = useCategories();
+  const { create, loading: createLoading, error: createError } = useRestaurantMutations();
+
+  const [formData, setFormData] = useState<RestaurantFormData>({
+    name: '',
+    phone: '',
+    logo: '',
+    categoryId: '',
+  });
+
+  const [errors, setErrors] = useState<Partial<RestaurantFormData>>({});
+  const [touched, setTouched] = useState<Partial<Record<keyof RestaurantFormData, boolean>>>({});
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [showSuccess, setShowSuccess] = useState<boolean>(false);
+
+  // Validation rules
+  const validateField = (name: keyof RestaurantFormData, value: string): string => {
+    switch (name) {
+      case 'name':
+        if (!value.trim()) return 'Restaurant name is required';
+        if (value.trim().length < 2) return 'Name must be at least 2 characters';
+        if (value.trim().length > 100) return 'Name must be less than 100 characters';
+        return '';
+
+      case 'phone':
+        if (value && !/^\+?[\d\s\-\(\)]+$/.test(value)) {
+          return 'Please enter a valid phone number';
+        }
+        return '';
+
+      case 'logo':
+        if (value && !/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(value)) {
+          return 'Please enter a valid image URL (jpg, png, gif, webp)';
+        }
+        return '';
+
+      case 'categoryId':
+        if (!value) return 'Please select a category';
+        return '';
+
+      default:
+        return '';
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<RestaurantFormData> = {};
+    let isValid = true;
+
+    (Object.keys(formData) as Array<keyof RestaurantFormData>).forEach(key => {
+      const error = validateField(key, formData[key]);
+      if (error) {
+        newErrors[key] = error;
+        isValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleInputChange = (name: keyof RestaurantFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleBlur = (name: keyof RestaurantFormData) => {
+    setTouched(prev => ({ ...prev, [name]: true }));
+    const error = validateField(name, formData[name]);
+    if (error) {
+      setErrors(prev => ({ ...prev, [name]: error }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Mark all fields as touched
+    const allTouched = Object.keys(formData).reduce((acc, key) => {
+      acc[key as keyof RestaurantFormData] = true;
+      return acc;
+    }, {} as Partial<Record<keyof RestaurantFormData, boolean>>);
+    setTouched(allTouched);
+
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      const submitData = {
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || undefined,
+        logo: formData.logo.trim() || undefined,
+        category: { id: parseInt(formData.categoryId) } as any, // Temporary fix for type mismatch
+      };
+
+      await create(submitData);
+
+      // Show success message
+      setSuccessMessage(`Restaurant "${formData.name.trim()}" has been created successfully!`);
+      setShowSuccess(true);
+
+      // Hide success message after 3 seconds and close modal
+      setTimeout(() => {
+        setShowSuccess(false);
+        onSuccess();
+      }, 3000);
+
+    } catch (error: any) {
+      console.error('Error creating restaurant:', error);
+
+      // The error is already handled by the hook and displayed via createError
+      // But we can add additional specific error handling if needed
+
+      // For example, you could add:
+      // if (error.response?.status === 409) {
+      //   // Handle duplicate restaurant name
+      // } else if (error.response?.status === 403) {
+      //   // Handle permission denied
+      // } else if (error.response?.status === 422) {
+      //   // Handle validation errors from server
+      // }
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Name Field */}
+        <div className="space-y-2">
+          <Input
+            label="Restaurant Name"
+            type="text"
+            value={formData.name}
+            onChange={(e) => handleInputChange('name', e.target.value)}
+            onBlur={() => handleBlur('name')}
+            error={touched.name ? errors.name : ''}
+            placeholder="Enter restaurant name"
+            required
+            variant="filled"
+          />
+        </div>
+
+        {/* Phone Field */}
+        <div className="space-y-2">
+          <Input
+            label="Phone Number"
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => handleInputChange('phone', e.target.value)}
+            onBlur={() => handleBlur('phone')}
+            error={touched.phone ? errors.phone : ''}
+            placeholder="Enter phone number (optional)"
+            variant="filled"
+          />
+        </div>
+
+        {/* Logo Field */}
+        <div className="space-y-2">
+          <Input
+            label="Logo URL"
+            type="url"
+            value={formData.logo}
+            onChange={(e) => handleInputChange('logo', e.target.value)}
+            onBlur={() => handleBlur('logo')}
+            error={touched.logo ? errors.logo : ''}
+            placeholder="Enter logo image URL (optional)"
+            variant="filled"
+          />
+        </div>
+
+        {/* Category Select */}
+        <div className="space-y-2">
+          <label htmlFor="category" className="block text-sm font-semibold text-neutral-800 font-display">
+            Category <span className="text-danger-500">*</span>
+          </label>
+          <select
+            id="category"
+            value={formData.categoryId}
+            onChange={(e) => handleInputChange('categoryId', e.target.value)}
+            onBlur={() => handleBlur('categoryId')}
+            className={`w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-300 hover:bg-neutral-100/50 ${
+              touched.categoryId && errors.categoryId
+                ? 'border-danger-400 focus:ring-danger-500/20 focus:border-danger-500'
+                : 'hover:border-primary-300'
+            } ${categoriesLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={categoriesLoading}
+          >
+            <option value="">Select a category</option>
+            {categories?.map((category: Category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          {touched.categoryId && errors.categoryId && (
+            <div className="flex items-center space-x-2 mt-2 animate-fade-in">
+              <svg className="w-4 h-4 text-danger-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-danger-600 font-medium">{errors.categoryId}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Success Message */}
+        {showSuccess && successMessage && (
+          <div className="bg-success-50/80 backdrop-blur-sm border border-success-200/50 rounded-xl p-4 animate-fade-in">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-success-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-success-800">{successMessage}</p>
+                <p className="text-xs text-success-600 mt-1">The modal will close automatically in a few seconds...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {createError && !showSuccess && (
+          <div className="bg-danger-50/80 backdrop-blur-sm border border-danger-200/50 rounded-xl p-4 animate-fade-in">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-danger-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-danger-800">{createError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end space-x-4 pt-6 border-t border-neutral-100">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={createLoading}
+            className="px-6 py-2.5"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={createLoading}
+            disabled={categoriesLoading}
+            className="px-8 py-2.5 shadow-soft hover:shadow-medium transition-all duration-300"
+          >
+            Create Restaurant
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default RestaurantForm;

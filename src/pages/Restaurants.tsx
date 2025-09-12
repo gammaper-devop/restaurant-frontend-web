@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { Card, Button, Table } from '../components/ui';
+import { Card, Button, Table, Modal } from '../components/ui';
+import RestaurantForm from '../components/RestaurantForm';
 import { useRestaurants, useCategories, useRestaurantMutations } from '../hooks';
 
 const Restaurants: React.FC = () => {
   const { data: restaurants, loading, error, refetch } = useRestaurants();
   const { data: categoriesData } = useCategories();
   const { remove, loading: mutationLoading } = useRestaurantMutations();
-  const [, setIsCreateModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Handle delete restaurant
   const handleDelete = async (id: number) => {
@@ -384,6 +385,22 @@ const Restaurants: React.FC = () => {
             </div>
           </Card>
         </div>
+
+        {/* Create Restaurant Modal */}
+        <Modal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          title="Add New Restaurant"
+          size="lg"
+        >
+          <RestaurantForm
+            onSuccess={() => {
+              setIsCreateModalOpen(false);
+              refetch(); // Refresh the restaurants list
+            }}
+            onCancel={() => setIsCreateModalOpen(false)}
+          />
+        </Modal>
       </div>
     </Layout>
   );

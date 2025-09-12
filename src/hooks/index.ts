@@ -226,8 +226,37 @@ export const useRestaurantMutations = () => {
       setError(null);
       const result = await restaurantsService.create(data);
       return result;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create restaurant';
+    } catch (err: any) {
+      let message = 'Failed to create restaurant';
+
+      // Provide more specific error messages based on HTTP status
+      if (err.response) {
+        switch (err.response.status) {
+          case 400:
+            message = 'Invalid restaurant data. Please check all fields.';
+            break;
+          case 401:
+            message = 'Authentication required. Please log in again.';
+            break;
+          case 403:
+            message = 'You do not have permission to create restaurants.';
+            break;
+          case 409:
+            message = 'A restaurant with this name already exists.';
+            break;
+          case 422:
+            message = 'Validation failed. Please check your input data.';
+            break;
+          case 500:
+            message = 'Server error. Please try again later.';
+            break;
+          default:
+            message = err.response.data?.message || 'Failed to create restaurant';
+        }
+      } else if (err.request) {
+        message = 'Network error. Please check your connection.';
+      }
+
       setError(message);
       throw err;
     } finally {
