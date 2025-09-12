@@ -5,7 +5,7 @@ import { useRestaurants, useCategories, useRestaurantMutations } from '../hooks'
 
 const Restaurants: React.FC = () => {
   const { data: restaurants, loading, error, refetch } = useRestaurants();
-  const { data: categories } = useCategories();
+  const { data: categoriesData } = useCategories();
   const { remove, loading: mutationLoading } = useRestaurantMutations();
   const [, setIsCreateModalOpen] = useState(false);
 
@@ -15,8 +15,8 @@ const Restaurants: React.FC = () => {
       try {
         await remove(id);
         await refetch();
-      } catch (error) {
-        console.error('Error deleting restaurant:', error);
+      } catch (err) {
+        console.error('Error deleting restaurant:', err);
       }
     }
   };
@@ -72,6 +72,10 @@ const Restaurants: React.FC = () => {
     );
   }
 
+  // Ensure restaurants and categories are arrays before proceeding
+  const validRestaurants = Array.isArray(restaurants) ? restaurants : [];
+  const validCategories = Array.isArray(categoriesData) ? categoriesData : [];
+
   const columns = [
     {
       key: 'name',
@@ -80,7 +84,7 @@ const Restaurants: React.FC = () => {
       render: (value: string, row: any) => (
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center text-white font-semibold">
-            {value.charAt(0)}
+            {value?.charAt(0) || '?'}
           </div>
           <div>
             <p className="font-medium text-neutral-900">{value}</p>
@@ -93,8 +97,8 @@ const Restaurants: React.FC = () => {
       key: 'category',
       label: 'Category',
       sortable: true,
-      render: (value: any, row: any) => {
-        const categoryName = value?.name || value || 'Unknown';
+      render: (value: any) => {
+        const categoryName = value?.name || 'Unknown';
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-secondary-100 text-secondary-800">
             {categoryName}
@@ -115,10 +119,10 @@ const Restaurants: React.FC = () => {
     {
       key: 'status',
       label: 'Status',
-      render: (value: string, row: any) => {
-        // Determine status based on locations or a status field
+      render: (_: any, row: any) => {
+        // Determine status based on locations
         const hasLocations = Array.isArray(row.locations) && row.locations.length > 0;
-        const status = value || (hasLocations ? 'Active' : 'Inactive');
+        const status = hasLocations ? 'Active' : 'Inactive';
         return (
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
             status === 'Active' 
@@ -138,7 +142,7 @@ const Restaurants: React.FC = () => {
       label: 'Created',
       sortable: true,
       render: (value: string) => (
-        <span className="text-neutral-600">{new Date(value).toLocaleDateString()}</span>
+        <span className="text-neutral-600">{value ? new Date(value).toLocaleDateString() : 'N/A'}</span>
       ),
     },
     {
@@ -184,7 +188,7 @@ const Restaurants: React.FC = () => {
   const stats = [
     {
       title: 'Total Restaurants',
-      value: restaurants.length,
+      value: validRestaurants.length,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -194,9 +198,9 @@ const Restaurants: React.FC = () => {
     },
     {
       title: 'Active Restaurants',
-      value: restaurants.filter(r => {
+      value: validRestaurants.filter(r => {
         const hasLocations = Array.isArray(r.locations) && r.locations.length > 0;
-        return r.status === 'Active' || hasLocations;
+        return hasLocations;
       }).length,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,7 +211,7 @@ const Restaurants: React.FC = () => {
     },
     {
       title: 'Total Locations',
-      value: restaurants.reduce((sum, r) => {
+      value: validRestaurants.reduce((sum, r) => {
         const locationCount = Array.isArray(r.locations) ? r.locations.length : 0;
         return sum + locationCount;
       }, 0),
@@ -221,10 +225,7 @@ const Restaurants: React.FC = () => {
     },
     {
       title: 'Categories',
-      value: new Set(restaurants.map(r => {
-        const categoryName = r.category?.name || r.category || 'Unknown';
-        return categoryName;
-      })).size,
+      value: new Set(validRestaurants.map(r => r.category?.name || 'Unknown')).size,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -290,10 +291,11 @@ const Restaurants: React.FC = () => {
               </div>
               <select className="bg-white border border-neutral-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                 <option value="">All Categories</option>
-                <option value="chinese">Chinese</option>
-                <option value="italian">Italian</option>
-                <option value="japanese">Japanese</option>
-                <option value="fast-food">Fast Food</option>
+                {validCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex items-center space-x-3">
@@ -327,7 +329,7 @@ const Restaurants: React.FC = () => {
         {/* Restaurants Table */}
         <Table
           columns={columns}
-          data={restaurants}
+          data={validRestaurants}
           variant="striped"
           emptyMessage="No restaurants found. Create your first restaurant to get started."
         />
