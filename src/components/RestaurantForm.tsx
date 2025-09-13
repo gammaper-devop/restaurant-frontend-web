@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Button, Input } from './ui';
+import LocationSelector from './LocationSelector';
 import { useCategories, useRestaurantMutations } from '../hooks';
+import { restaurantLocationsService } from '../services/api';
 import type { Category } from '../types';
 
 interface RestaurantFormData {
@@ -8,6 +10,13 @@ interface RestaurantFormData {
   phone: string;
   logo: string;
   categoryId: string;
+}
+
+interface LocationFormData {
+  address: string;
+  latitude: string;
+  longitude: string;
+  districtId: string;
 }
 
 interface RestaurantFormProps {
@@ -30,6 +39,69 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
   const [touched, setTouched] = useState<Partial<Record<keyof RestaurantFormData, boolean>>>({});
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
+
+  // Locations state
+  const [locations, setLocations] = useState<LocationFormData[]>([
+    { address: '', latitude: '', longitude: '', districtId: '' }
+  ]);
+  const [locationErrors, setLocationErrors] = useState<Partial<LocationFormData>[]>([{}]);
+
+  // Location management functions
+  const addLocation = () => {
+    setLocations(prev => [...prev, { address: '', latitude: '', longitude: '', districtId: '' }]);
+    setLocationErrors(prev => [...prev, {}]);
+  };
+
+  const removeLocation = (index: number) => {
+    if (locations.length > 1) {
+      setLocations(prev => prev.filter((_, i) => i !== index));
+      setLocationErrors(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateLocation = (index: number, locationData: LocationFormData) => {
+    setLocations(prev => prev.map((loc, i) => i === index ? locationData : loc));
+  };
+
+  // Validate location
+  const validateLocation = (location: LocationFormData): Partial<LocationFormData> => {
+    const errors: Partial<LocationFormData> = {};
+
+    if (!location.address.trim()) {
+      errors.address = 'Address is required';
+    }
+
+    if (!location.latitude.trim()) {
+      errors.latitude = 'Latitude is required';
+    } else {
+      const lat = parseFloat(location.latitude);
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        errors.latitude = 'Please enter a valid latitude (-90 to 90)';
+      }
+    }
+
+    if (!location.longitude.trim()) {
+      errors.longitude = 'Longitude is required';
+    } else {
+      const lng = parseFloat(location.longitude);
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        errors.longitude = 'Please enter a valid longitude (-180 to 180)';
+      }
+    }
+
+    if (!location.districtId) {
+      errors.districtId = 'Please select a district';
+    }
+
+    return errors;
+  };
+
+  // Validate all locations
+  const validateAllLocations = (): boolean => {
+    const newErrors = locations.map(validateLocation);
+    setLocationErrors(newErrors);
+    return newErrors.every(error => Object.keys(error).length === 0);
+  };
 
   // Validation rules
   const validateField = (name: keyof RestaurantFormData, value: string): string => {
@@ -104,11 +176,16 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
     }, {} as Partial<Record<keyof RestaurantFormData, boolean>>);
     setTouched(allTouched);
 
-    if (!validateForm()) {
+    // Validate form and locations
+    const isFormValid = validateForm();
+    const areLocationsValid = validateAllLocations();
+
+    if (!isFormValid || !areLocationsValid) {
       return;
     }
 
     try {
+      // Step 1: Create the restaurant
       const submitData = {
         name: formData.name.trim(),
         phone: formData.phone.trim() || undefined,
@@ -116,10 +193,51 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
         category: { id: parseInt(formData.categoryId) } as any, // Temporary fix for type mismatch
       };
 
-      await create(submitData);
+      const createdRestaurant = await create(submitData);
+      console.log('Created restaurant:', createdRestaurant);
+      console.log('Restaurant ID:', createdRestaurant?.id);
+      console.log('Restaurant data structure:', createdRestaurant?.data);
+
+      // Step 2: Create restaurant locations
+      const locationPromises = locations.map((location, index) => {
+        // Handle different response structures from backend
+        let restaurantId: number | undefined;
+
+        if (typeof createdRestaurant === 'object' && createdRestaurant !== null) {
+          // Check if it's the direct restaurant object
+          if ('id' in createdRestaurant && typeof createdRestaurant.id === 'number') {
+            restaurantId = createdRestaurant.id;
+          }
+          // Check if it's wrapped in a data property (API response format)
+          else if ('data' in createdRestaurant && createdRestaurant.data && typeof createdRestaurant.data === 'object' && 'id' in createdRestaurant.data) {
+            restaurantId = (createdRestaurant.data as any).id;
+          }
+        }
+
+        if (!restaurantId) {
+          console.error('Restaurant creation response:', createdRestaurant);
+          throw new Error('Restaurant ID not found after creation');
+        }
+
+        const locationData = {
+          address: location.address.trim(),
+          latitude: parseFloat(location.latitude),
+          longitude: parseFloat(location.longitude),
+          district: parseInt(location.districtId),
+          restaurant: restaurantId,
+        } as any; // TypeScript workaround for backend API mismatch
+
+        console.log(`Creating location ${index + 1} with payload:`, locationData);
+        return restaurantLocationsService.create(locationData);
+      });
+
+      await Promise.all(locationPromises);
 
       // Show success message
-      setSuccessMessage(`Restaurant "${formData.name.trim()}" has been created successfully!`);
+      const locationText = locations.length === 1 ? 'location' : 'locations';
+      setSuccessMessage(
+        `Restaurant "${formData.name.trim()}" with ${locations.length} ${locationText} has been created successfully!`
+      );
       setShowSuccess(true);
 
       // Hide success message after 3 seconds and close modal
@@ -129,7 +247,7 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
       }, 3000);
 
     } catch (error: any) {
-      console.error('Error creating restaurant:', error);
+      console.error('Error creating restaurant or locations:', error);
 
       // The error is already handled by the hook and displayed via createError
       // But we can add additional specific error handling if needed
@@ -223,6 +341,41 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
               <p className="text-sm text-danger-600 font-medium">{errors.categoryId}</p>
             </div>
           )}
+        </div>
+
+        {/* Restaurant Locations */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-neutral-800 font-display">
+              Restaurant Locations <span className="text-danger-500">*</span>
+            </h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addLocation}
+              disabled={createLoading}
+              className="px-4 py-2"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Location
+            </Button>
+          </div>
+
+          <div className="space-y-6">
+            {locations.map((location, index) => (
+              <LocationSelector
+                key={index}
+                location={location}
+                onChange={(updatedLocation) => updateLocation(index, updatedLocation)}
+                onRemove={() => removeLocation(index)}
+                showRemove={locations.length > 1}
+                errors={locationErrors[index] || {}}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Success Message */}

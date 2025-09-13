@@ -11,8 +11,7 @@ import type {
   City, 
   Province, 
   District,
-  RestaurantLocation,
-  ErrorLog
+  RestaurantLocation
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
@@ -324,32 +323,32 @@ export const locationsService = {
 // Restaurant Locations Service
 export const restaurantLocationsService = {
   getAll: async (): Promise<RestaurantLocation[]> => {
-    const response = await api.get('/restaurant-locations');
+    const response = await api.get('/restaurants/locations');
     return response.data;
   },
 
   getById: async (id: number): Promise<RestaurantLocation> => {
-    const response = await api.get(`/restaurant-locations/${id}`);
+    const response = await api.get(`/restaurants/locations/${id}`);
     return response.data;
   },
 
   getByRestaurant: async (restaurantId: number): Promise<RestaurantLocation[]> => {
-    const response = await api.get(`/restaurant-locations/restaurant/${restaurantId}`);
+    const response = await api.get(`/restaurants/${restaurantId}/locations`);
     return response.data;
   },
 
   create: async (locationData: Omit<RestaurantLocation, 'id'>): Promise<RestaurantLocation> => {
-    const response = await api.post('/restaurant-locations', locationData);
+    const response = await api.post('/restaurants/locations', locationData);
     return response.data;
   },
 
   update: async (id: number, locationData: Partial<RestaurantLocation>): Promise<RestaurantLocation> => {
-    const response = await api.put(`/restaurant-locations/${id}`, locationData);
+    const response = await api.put(`/restaurants/locations/${id}`, locationData);
     return response.data;
   },
 
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/restaurant-locations/${id}`);
+    await api.delete(`/restaurants/locations/${id}`);
   },
 };
 

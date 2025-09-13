@@ -14,12 +14,6 @@ import type {
   Category,
   Dish,
   Menu,
-  User,
-  Country,
-  City,
-  Province,
-  District,
-  RestaurantLocation,
 } from '../types';
 
 interface ApiState<T> {

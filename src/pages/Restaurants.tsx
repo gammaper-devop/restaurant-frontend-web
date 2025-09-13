@@ -2,13 +2,17 @@ import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import { Card, Button, Table, Modal } from '../components/ui';
 import RestaurantForm from '../components/RestaurantForm';
+import RestaurantDetailsModal from '../components/RestaurantDetailsModal';
 import { useRestaurants, useCategories, useRestaurantMutations } from '../hooks';
+import type { Restaurant } from '../types';
 
 const Restaurants: React.FC = () => {
   const { data: restaurants, loading, error, refetch } = useRestaurants();
   const { data: categoriesData } = useCategories();
   const { remove, loading: mutationLoading } = useRestaurantMutations();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Handle delete restaurant
   const handleDelete = async (id: number) => {
@@ -20,6 +24,13 @@ const Restaurants: React.FC = () => {
         console.error('Error deleting restaurant:', err);
       }
     }
+  };
+
+  // Handle view restaurant details
+  const handleViewDetails = (restaurant: Restaurant) => {
+    console.log('Opening details modal for restaurant:', restaurant);
+    setSelectedRestaurant(restaurant);
+    setIsDetailsModalOpen(true);
   };
 
   // Show loading state
@@ -110,10 +121,37 @@ const Restaurants: React.FC = () => {
     {
       key: 'locations',
       label: 'Locations',
-      render: (value: any) => {
-        const locationCount = Array.isArray(value) ? value.length : 0;
+      render: (value: any, row: any) => {
+        const locations = Array.isArray(value) ? value : [];
+        const locationCount = locations.length;
+
+        if (locationCount === 0) {
+          return (
+            <span className="text-neutral-500 italic">No locations</span>
+          );
+        }
+
+        // Show first location address and count if multiple
+        const firstLocation = locations[0];
+        const address = firstLocation?.address || 'Unknown address';
+
         return (
-          <span className="text-neutral-900 font-medium">{locationCount}</span>
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <svg className="w-4 h-4 text-neutral-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className="text-sm text-neutral-700 truncate max-w-48" title={address}>
+                {address}
+              </span>
+            </div>
+            {locationCount > 1 && (
+              <span className="text-xs text-neutral-500">
+                +{locationCount - 1} more location{locationCount > 2 ? 's' : ''}
+              </span>
+            )}
+          </div>
         );
       },
     },
@@ -151,6 +189,20 @@ const Restaurants: React.FC = () => {
       label: 'Actions',
       render: (_: any, row: any) => (
         <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleViewDetails(row)}
+            disabled={mutationLoading}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            }
+          >
+            View
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -401,6 +453,16 @@ const Restaurants: React.FC = () => {
             onCancel={() => setIsCreateModalOpen(false)}
           />
         </Modal>
+
+        {/* Restaurant Details Modal */}
+        <RestaurantDetailsModal
+          isOpen={isDetailsModalOpen}
+          onClose={() => {
+            setIsDetailsModalOpen(false);
+            setSelectedRestaurant(null);
+          }}
+          restaurant={selectedRestaurant}
+        />
       </div>
     </Layout>
   );
