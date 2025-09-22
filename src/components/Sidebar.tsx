@@ -6,6 +6,22 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+
+  const toggleMenu = (key: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const isMenuExpanded = (key: string) => {
+    return expandedMenus[key] || false;
+  };
+
+  const isSubmenuActive = (subItems: any[]) => {
+    return subItems?.some(item => location.pathname === item.path) || false;
+  };
 
   const menuItems = [
     {
@@ -19,13 +35,34 @@ const Sidebar: React.FC = () => {
       ),
     },
     {
-      path: '/restaurants',
+      key: 'restaurants',
       label: 'Restaurants',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
       ),
+      subItems: [
+        {
+          path: '/restaurants',
+          label: 'All Restaurants',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          ),
+        },
+        {
+          path: '/restaurant-locations',
+          label: 'Locations',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          ),
+        },
+      ],
     },
     {
       path: '/categories',
@@ -124,6 +161,94 @@ const Sidebar: React.FC = () => {
       <nav className="mt-8 px-4">
         <div className="space-y-2">
           {menuItems.map((item) => {
+            // Handle items with subitems
+            if (item.subItems) {
+              const isActive = isSubmenuActive(item.subItems);
+              const isExpanded = isMenuExpanded(item.key);
+              
+              return (
+                <div key={item.key}>
+                  {/* Main menu item with submenu */}
+                  <button
+                    onClick={() => !isCollapsed && toggleMenu(item.key)}
+                    className={`group flex items-center justify-between w-full px-4 py-3.5 text-sm font-medium rounded-2xl transition-all duration-200 transform hover:scale-105 relative ${
+                      isActive
+                        ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-glow'
+                        : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      {/* Active indicator */}
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full animate-fade-in" />
+                      )}
+                      
+                      <span className={`${isActive ? 'text-white' : 'text-neutral-400 group-hover:text-white'} transition-colors duration-200`}>
+                        {item.icon}
+                      </span>
+                      
+                      {!isCollapsed && (
+                        <span className="ml-4 animate-fade-in">
+                          {item.label}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Expand/Collapse arrow */}
+                    {!isCollapsed && (
+                      <svg 
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isExpanded ? 'rotate-180' : ''
+                        } ${isActive ? 'text-white' : 'text-neutral-400'}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                    
+                    {/* Tooltip for collapsed state */}
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-4 px-3 py-2 bg-neutral-800 text-white text-sm rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-medium">
+                        {item.label}
+                        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-neutral-800 rotate-45" />
+                      </div>
+                    )}
+                  </button>
+                  
+                  {/* Submenu items */}
+                  {!isCollapsed && isExpanded && (
+                    <div className="ml-6 mt-2 space-y-1 animate-fade-in">
+                      {item.subItems.map((subItem) => {
+                        const isSubActive = location.pathname === subItem.path;
+                        return (
+                          <Link
+                            key={subItem.path}
+                            to={subItem.path}
+                            className={`group flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative ${
+                              isSubActive
+                                ? 'bg-primary-500/20 text-primary-200 border-l-2 border-primary-400'
+                                : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                            }`}
+                          >
+                            <span className={`${isSubActive ? 'text-primary-200' : 'text-neutral-500 group-hover:text-white'} transition-colors duration-200`}>
+                              {subItem.icon}
+                            </span>
+                            
+                            <span className="ml-3">
+                              {subItem.label}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            
+            // Handle simple menu items
             const isActive = location.pathname === item.path;
             return (
               <Link

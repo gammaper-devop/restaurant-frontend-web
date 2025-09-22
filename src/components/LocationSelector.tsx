@@ -130,7 +130,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           step="any"
           value={location.latitude}
           onChange={(e) => handleInputChange('latitude', e.target.value)}
-          placeholder="e.g., -12.0464"
+          placeholder="e.g. -12.0464 (Lima)"
           variant="filled"
           error={errors.latitude}
           required
@@ -141,7 +141,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           step="any"
           value={location.longitude}
           onChange={(e) => handleInputChange('longitude', e.target.value)}
-          placeholder="e.g., -77.0428"
+          placeholder="e.g. -77.0428 (Lima)"
           variant="filled"
           error={errors.longitude}
           required

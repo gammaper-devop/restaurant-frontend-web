@@ -7,6 +7,11 @@ const Dashboard: React.FC = () => {
   const { data: statsData, loading: statsLoading, error: statsError } = useDashboardStats();
   const { data: recentActivity, loading: activityLoading, error: activityError } = useDashboardActivity();
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('Dashboard data:', { statsData, recentActivity, statsError, activityError });
+  }, [statsData, recentActivity, statsError, activityError]);
+
   // Define stats structure based on API data
   const stats = statsData ? [
     {
@@ -307,23 +312,34 @@ const Dashboard: React.FC = () => {
               </Button>
             </div>
             <div className="space-y-4">
-              {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-xl hover:bg-neutral-50 transition-colors">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-primary-600 rounded-full" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-900 font-medium">
-                      {activity.message}
-                    </p>
-                    <div className="flex items-center mt-1 space-x-2">
-                      <p className="text-xs text-neutral-500">{activity.time}</p>
-                      <span className="text-xs text-neutral-400">•</span>
-                      <p className="text-xs text-neutral-500">by {activity.user}</p>
+              {recentActivity && recentActivity.length > 0 ? (
+                recentActivity.map((activity) => (
+                  <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-xl hover:bg-neutral-50 transition-colors">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-full flex items-center justify-center">
+                      <div className="w-2 h-2 bg-primary-600 rounded-full" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-neutral-900 font-medium">
+                        {activity.message}
+                      </p>
+                      <div className="flex items-center mt-1 space-x-2">
+                        <p className="text-xs text-neutral-500">{activity.time}</p>
+                        <span className="text-xs text-neutral-400">•</span>
+                        <p className="text-xs text-neutral-500">by {activity.user}</p>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto bg-neutral-100 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-neutral-500">No hay actividad reciente</p>
                 </div>
-              ))}
+              )}
             </div>
           </Card>
         </div>

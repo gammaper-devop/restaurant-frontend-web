@@ -10,6 +10,7 @@ interface RestaurantFormData {
   phone: string;
   logo: string;
   categoryId: string;
+  active: boolean;
 }
 
 interface LocationFormData {
@@ -33,6 +34,7 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
     phone: '',
     logo: '',
     categoryId: '',
+    active: true,
   });
 
   const [errors, setErrors] = useState<Partial<RestaurantFormData>>({});
@@ -191,6 +193,7 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
         phone: formData.phone.trim() || undefined,
         logo: formData.logo.trim() || undefined,
         category: { id: parseInt(formData.categoryId) } as any, // Temporary fix for type mismatch
+        active: formData.active,
       };
 
       const createdRestaurant = await create(submitData);
@@ -307,6 +310,25 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
             placeholder="Enter logo image URL (optional)"
             variant="filled"
           />
+        </div>
+
+        {/* Active Status */}
+        <div className="space-y-2">
+          <div className="flex items-center space-x-3">
+            <input
+              id="active"
+              type="checkbox"
+              checked={formData.active}
+              onChange={(e) => handleInputChange('active', e.target.checked as any)}
+              className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500 focus:ring-2"
+            />
+            <label htmlFor="active" className="block text-sm font-semibold text-neutral-800 font-display">
+              Estado Activo
+            </label>
+          </div>
+          <p className="text-xs text-neutral-500 ml-7">
+            Los restaurantes activos serán visibles y operativos en el sistema
+          </p>
         </div>
 
         {/* Category Select */}

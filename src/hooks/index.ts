@@ -214,7 +214,7 @@ export const useRestaurantMutations = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const create = useCallback(async (data: Omit<Restaurant, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const create = useCallback(async (data: Omit<Restaurant, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       setLoading(true);
       setError(null);
@@ -345,7 +345,7 @@ export const useDishMutations = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const create = useCallback(async (data: Omit<Dish, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const create = useCallback(async (data: Omit<Dish, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       setLoading(true);
       setError(null);
@@ -396,7 +396,7 @@ export const useMenuMutations = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const create = useCallback(async (data: Omit<Menu, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const create = useCallback(async (data: Omit<Menu, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       setLoading(true);
       setError(null);

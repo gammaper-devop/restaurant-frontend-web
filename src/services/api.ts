@@ -81,7 +81,9 @@ export const authService = {
 export const usersService = {
   getAll: async (): Promise<User[]> => {
     const response = await api.get('/users');
-    return response.data;
+    console.log('Users API response:', response.data);
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<User> => {
@@ -102,13 +104,25 @@ export const usersService = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/users/${id}`);
   },
+
+  toggleActive: async (id: number): Promise<User> => {
+    const response = await api.patch(`/users/${id}/toggle-active`);
+    return response.data;
+  },
+
+  softDelete: async (id: number): Promise<void> => {
+    await api.delete(`/users/${id}`);
+  },
 };
 
 // Restaurants Service
 export const restaurantsService = {
   getAll: async (): Promise<Restaurant[]> => {
     const response = await api.get('/restaurants');
-    return response.data;
+    console.log('Restaurants API response:', response.data);
+    // Handle different response formats
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<Restaurant> => {
@@ -129,13 +143,24 @@ export const restaurantsService = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/restaurants/${id}`);
   },
+
+  toggleActive: async (id: number): Promise<Restaurant> => {
+    const response = await api.patch(`/restaurants/${id}/toggle-active`);
+    return response.data;
+  },
+
+  softDelete: async (id: number): Promise<void> => {
+    await api.delete(`/restaurants/${id}`);
+  },
 };
 
 // Categories Service
 export const categoriesService = {
   getAll: async (): Promise<Category[]> => {
     const response = await api.get('/categories');
-    return response.data;
+    console.log('Categories API response:', response.data);
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<Category> => {
@@ -156,13 +181,24 @@ export const categoriesService = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/categories/${id}`);
   },
+
+  toggleActive: async (id: number): Promise<Category> => {
+    const response = await api.patch(`/categories/${id}/toggle-active`);
+    return response.data;
+  },
+
+  softDelete: async (id: number): Promise<void> => {
+    await api.delete(`/categories/${id}`);
+  },
 };
 
 // Dishes Service
 export const dishesService = {
   getAll: async (): Promise<Dish[]> => {
     const response = await api.get('/dishes');
-    return response.data;
+    console.log('Dishes API response:', response.data);
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<Dish> => {
@@ -188,13 +224,24 @@ export const dishesService = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/dishes/${id}`);
   },
+
+  toggleActive: async (id: number): Promise<Dish> => {
+    const response = await api.patch(`/dishes/${id}/toggle-active`);
+    return response.data;
+  },
+
+  softDelete: async (id: number): Promise<void> => {
+    await api.delete(`/dishes/${id}`);
+  },
 };
 
 // Menus Service
 export const menusService = {
   getAll: async (): Promise<Menu[]> => {
     const response = await api.get('/menus');
-    return response.data;
+    console.log('Menus API response:', response.data);
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<Menu> => {
@@ -227,6 +274,15 @@ export const menusService = {
 
   removeDish: async (menuId: number, dishId: number): Promise<void> => {
     await api.delete(`/menus/${menuId}/dishes/${dishId}`);
+  },
+
+  toggleActive: async (id: number): Promise<Menu> => {
+    const response = await api.patch(`/menus/${id}/toggle-active`);
+    return response.data;
+  },
+
+  softDelete: async (id: number): Promise<void> => {
+    await api.delete(`/menus/${id}`);
   },
 };
 
@@ -361,20 +417,37 @@ export const dashboardService = {
     totalUsers: number;
     activeRestaurants: number;
   }> => {
-    const [restaurants, menus, dishes, users] = await Promise.all([
-      restaurantsService.getAll(),
-      menusService.getAll(),
-      dishesService.getAll(),
-      usersService.getAll()
-    ]);
+    try {
+      const [restaurants, menus, dishes, users] = await Promise.all([
+        restaurantsService.getAll(),
+        menusService.getAll(),
+        dishesService.getAll(),
+        usersService.getAll()
+      ]);
 
-    return {
-      totalRestaurants: restaurants.length,
-      totalMenus: menus.length,
-      totalDishes: dishes.length,
-      totalUsers: users.length,
-      activeRestaurants: restaurants.filter(r => r.locations && r.locations.length > 0).length
-    };
+      // Ensure all data are arrays
+      const validRestaurants = Array.isArray(restaurants) ? restaurants : [];
+      const validMenus = Array.isArray(menus) ? menus : [];
+      const validDishes = Array.isArray(dishes) ? dishes : [];
+      const validUsers = Array.isArray(users) ? users : [];
+
+      return {
+        totalRestaurants: validRestaurants.length,
+        totalMenus: validMenus.length,
+        totalDishes: validDishes.length,
+        totalUsers: validUsers.length,
+        activeRestaurants: validRestaurants.filter(r => r.active === true).length
+      };
+    } catch (error) {
+      console.error('Error getting dashboard stats:', error);
+      return {
+        totalRestaurants: 0,
+        totalMenus: 0,
+        totalDishes: 0,
+        totalUsers: 0,
+        activeRestaurants: 0
+      };
+    }
   },
 
   getRecentActivity: async (): Promise<{
@@ -384,21 +457,29 @@ export const dashboardService = {
     time: string;
     user: string;
   }[]> => {
-    // In a real app, you'd have an activity log endpoint
-    // For now, we'll return recent restaurants as activity
-    const restaurants = await restaurantsService.getAll();
-    const recent = restaurants
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 3)
-      .map(restaurant => ({
-        id: restaurant.id,
-        type: 'restaurant_added',
-        message: `New restaurant "${restaurant.name}" was added`,
-        time: new Date(restaurant.createdAt).toLocaleString(),
-        user: 'System'
-      }));
-    
-    return recent;
+    try {
+      // In a real app, you'd have an activity log endpoint
+      // For now, we'll return recent restaurants as activity
+      const restaurants = await restaurantsService.getAll();
+      const validRestaurants = Array.isArray(restaurants) ? restaurants : [];
+      
+      const recent = validRestaurants
+        .filter(restaurant => restaurant.created_at) // Only include items with valid created_at
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3)
+        .map(restaurant => ({
+          id: restaurant.id,
+          type: 'restaurant_added',
+          message: `Nuevo restaurante "${restaurant.name}" fue agregado`,
+          time: new Date(restaurant.created_at).toLocaleString('es-ES'),
+          user: 'Sistema'
+        }));
+      
+      return recent;
+    } catch (error) {
+      console.error('Error getting recent activity:', error);
+      return [];
+    }
   }
 };
 

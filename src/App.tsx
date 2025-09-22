@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Restaurants from './pages/Restaurants';
+import RestaurantLocations from './pages/RestaurantLocations';
 import Categories from './pages/Categories';
 import Locations from './pages/Locations';
 import Dishes from './pages/Dishes';
@@ -27,6 +28,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Restaurants />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/restaurant-locations"
+        element={
+          <ProtectedRoute>
+            <RestaurantLocations />
           </ProtectedRoute>
         }
       />

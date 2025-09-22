@@ -3,8 +3,10 @@ export interface User {
   name: string;
   email: string;
   password?: string;
-  createdAt: string;
-  updatedAt: string;
+  phone?: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface LoginRequest {
@@ -20,29 +22,44 @@ export interface AuthResponse {
 export interface Category {
   id: number;
   name: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Country {
   id: number;
   name: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface City {
   id: number;
   name: string;
   country: Country;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Province {
   id: number;
   name: string;
   city: City;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface District {
   id: number;
   name: string;
   province: Province;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RestaurantLocation {
@@ -50,39 +67,55 @@ export interface RestaurantLocation {
   address: string;
   latitude: number;
   longitude: number;
+  phone?: string;
+  country_id: number;
+  city_id: number;
+  province_id: number;
+  district_id: number;
   district: District;
+  restaurant_id: number;
   restaurant?: Restaurant;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Restaurant {
   id: number;
   name: string;
+  description?: string;
   logo?: string;
+  email?: string;
   phone?: string;
   category: Category;
   locations?: RestaurantLocation[];
-  createdAt: string;
-  updatedAt: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Dish {
   id: number;
   name: string;
   description?: string;
-  price?: number;
+  image?: string;
+  price: number;
   restaurant: Restaurant;
-  createdAt: string;
-  updatedAt: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Menu {
   id: number;
   name: string;
   description?: string;
+  file?: string;
   restaurant: Restaurant;
   dishes?: Dish[];
-  createdAt: string;
-  updatedAt: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ErrorLog {
