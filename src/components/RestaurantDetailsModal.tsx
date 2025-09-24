@@ -77,14 +77,7 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
                 {Array.isArray(restaurant.locations) && restaurant.locations.length > 0 ? 'Active' : 'Inactive'}
               </span>
             </div>
-            {restaurant.phone && (
-              <p className="text-neutral-600 flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                {restaurant.phone}
-              </p>
-            )}
+            {/* Phone moved to RestaurantLocation */}
           </div>
         </div>
 
@@ -103,10 +96,7 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
                 <label className="text-sm font-medium text-neutral-600">Category</label>
                 <p className="text-neutral-900">{restaurant.category?.name || 'Not specified'}</p>
               </div>
-              <div>
-                <label className="text-sm font-medium text-neutral-600">Phone</label>
-                <p className="text-neutral-900">{restaurant.phone || 'Not specified'}</p>
-              </div>
+              {/* Phone field removed - now in RestaurantLocation */}
               <div>
                 <label className="text-sm font-medium text-neutral-600">Logo</label>
                 {restaurant.logo ? (
@@ -138,11 +128,11 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
               </div>
               <div>
                 <label className="text-sm font-medium text-neutral-600">Created</label>
-                <p className="text-neutral-900">{formatDate(restaurant.createdAt)}</p>
+                <p className="text-neutral-900">{formatDate(restaurant.created_at)}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-neutral-600">Last Updated</label>
-                <p className="text-neutral-900">{formatDate(restaurant.updatedAt)}</p>
+                <p className="text-neutral-900">{formatDate(restaurant.updated_at)}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-neutral-600">Status</label>

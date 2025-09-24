@@ -5,7 +5,7 @@ import { useDashboardStats, useDashboardActivity } from '../hooks';
 
 const Dashboard: React.FC = () => {
   const { data: statsData, loading: statsLoading, error: statsError } = useDashboardStats();
-  const { data: recentActivity, loading: activityLoading, error: activityError } = useDashboardActivity();
+  const { data: recentActivity, error: activityError } = useDashboardActivity();
 
   // Debug logging
   React.useEffect(() => {
@@ -116,7 +116,7 @@ const Dashboard: React.FC = () => {
         <div className="space-y-8">
           {/* Loading Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {loadingStats.map((stat, index) => (
+            {loadingStats.map((_, index) => (
               <Card key={index} variant="elevated" hover className="group animate-pulse">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

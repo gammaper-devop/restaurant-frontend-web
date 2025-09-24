@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { Card, Button, Table, Modal, StatusBadge, ConfirmDialog, Toast } from '../components/ui';
+import { Card, Button, Table, Modal, ConfirmDialog, Toast } from '../components/ui';
 import RestaurantForm from '../components/RestaurantForm';
 import RestaurantDetailsModal from '../components/RestaurantDetailsModal';
 import EditRestaurantModal from '../components/EditRestaurantModal';
@@ -11,7 +11,7 @@ import type { Restaurant } from '../types';
 const Restaurants: React.FC = () => {
   const { data: restaurants, loading, error, refetch } = useRestaurants();
   const { data: categoriesData } = useCategories();
-  const { remove, loading: mutationLoading } = useRestaurantMutations();
+  const { loading: mutationLoading } = useRestaurantMutations();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -165,14 +165,13 @@ const Restaurants: React.FC = () => {
       key: 'name',
       label: 'Restaurant Name',
       sortable: true,
-      render: (value: string, row: any) => (
+      render: (value: string) => (
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center text-white font-semibold">
             {value?.charAt(0) || '?'}
           </div>
           <div>
             <p className="font-medium text-neutral-900">{value}</p>
-            <p className="text-sm text-neutral-500">{row.phone || 'No phone'}</p>
           </div>
         </div>
       ),
@@ -193,7 +192,7 @@ const Restaurants: React.FC = () => {
     {
       key: 'locations',
       label: 'Locations',
-      render: (value: any, row: any) => {
+      render: (value: any) => {
         const locations = Array.isArray(value) ? value : [];
         const locationCount = locations.length;
 

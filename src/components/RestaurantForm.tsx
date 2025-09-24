@@ -3,11 +3,11 @@ import { Button, Input } from './ui';
 import LocationSelector from './LocationSelector';
 import { useCategories, useRestaurantMutations } from '../hooks';
 import { restaurantLocationsService } from '../services/api';
-import type { Category } from '../types';
+import type { Category, CreateRestaurantDTO } from '../types';
 
-interface RestaurantFormData {
+// Usar interfaces del types/index.ts
+interface RestaurantFormState {
   name: string;
-  phone: string;
   logo: string;
   categoryId: string;
   active: boolean;
@@ -15,6 +15,7 @@ interface RestaurantFormData {
 
 interface LocationFormData {
   address: string;
+  phone: string; // ¡Phone ahora está en RestaurantLocation!
   latitude: string;
   longitude: string;
   districtId: string;
@@ -29,28 +30,27 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
   const { data: categories, loading: categoriesLoading } = useCategories();
   const { create, loading: createLoading, error: createError } = useRestaurantMutations();
 
-  const [formData, setFormData] = useState<RestaurantFormData>({
+  const [formData, setFormData] = useState<RestaurantFormState>({
     name: '',
-    phone: '',
     logo: '',
     categoryId: '',
     active: true,
   });
 
-  const [errors, setErrors] = useState<Partial<RestaurantFormData>>({});
-  const [touched, setTouched] = useState<Partial<Record<keyof RestaurantFormData, boolean>>>({});
+  const [errors, setErrors] = useState<Partial<RestaurantFormState>>({});
+  const [touched, setTouched] = useState<Partial<Record<keyof RestaurantFormState, boolean>>>({});
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
 
-  // Locations state
+  // Locations state - incluir phone
   const [locations, setLocations] = useState<LocationFormData[]>([
-    { address: '', latitude: '', longitude: '', districtId: '' }
+    { address: '', phone: '', latitude: '', longitude: '', districtId: '' }
   ]);
   const [locationErrors, setLocationErrors] = useState<Partial<LocationFormData>[]>([{}]);
 
   // Location management functions
   const addLocation = () => {
-    setLocations(prev => [...prev, { address: '', latitude: '', longitude: '', districtId: '' }]);
+    setLocations(prev => [...prev, { address: '', phone: '', latitude: '', longitude: '', districtId: '' }]);
     setLocationErrors(prev => [...prev, {}]);
   };
 
@@ -95,6 +95,11 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
       errors.districtId = 'Please select a district';
     }
 
+    // Phone validation (optional)
+    if (location.phone && !/^\+?[\d\s\-\(\)]+$/.test(location.phone)) {
+      errors.phone = 'Please enter a valid phone number';
+    }
+
     return errors;
   };
 
@@ -105,29 +110,26 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
     return newErrors.every(error => Object.keys(error).length === 0);
   };
 
-  // Validation rules
-  const validateField = (name: keyof RestaurantFormData, value: string): string => {
+  // Validation rules - actualizado para nueva estructura
+  const validateField = (name: keyof RestaurantFormState, value: string | boolean): string => {
+    if (typeof value === 'boolean') return ''; // active field
+    
+    const stringValue = String(value);
     switch (name) {
       case 'name':
-        if (!value.trim()) return 'Restaurant name is required';
-        if (value.trim().length < 2) return 'Name must be at least 2 characters';
-        if (value.trim().length > 100) return 'Name must be less than 100 characters';
-        return '';
-
-      case 'phone':
-        if (value && !/^\+?[\d\s\-\(\)]+$/.test(value)) {
-          return 'Please enter a valid phone number';
-        }
+        if (!stringValue.trim()) return 'Restaurant name is required';
+        if (stringValue.trim().length < 2) return 'Name must be at least 2 characters';
+        if (stringValue.trim().length > 100) return 'Name must be less than 100 characters';
         return '';
 
       case 'logo':
-        if (value && !/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(value)) {
+        if (stringValue && !/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(stringValue)) {
           return 'Please enter a valid image URL (jpg, png, gif, webp)';
         }
         return '';
 
       case 'categoryId':
-        if (!value) return 'Please select a category';
+        if (!stringValue) return 'Please select a category';
         return '';
 
       default:
@@ -136,13 +138,13 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<RestaurantFormData> = {};
+    const newErrors: Partial<RestaurantFormState> = {};
     let isValid = true;
 
-    (Object.keys(formData) as Array<keyof RestaurantFormData>).forEach(key => {
+    (Object.keys(formData) as Array<keyof RestaurantFormState>).forEach(key => {
       const error = validateField(key, formData[key]);
       if (error) {
-        newErrors[key] = error;
+        (newErrors as any)[key] = error; // Type assertion for complex form validation
         isValid = false;
       }
     });
@@ -151,7 +153,7 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
     return isValid;
   };
 
-  const handleInputChange = (name: keyof RestaurantFormData, value: string) => {
+  const handleInputChange = (name: keyof RestaurantFormState, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [name]: value }));
 
     // Clear error when user starts typing
@@ -160,7 +162,7 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
     }
   };
 
-  const handleBlur = (name: keyof RestaurantFormData) => {
+  const handleBlur = (name: keyof RestaurantFormState) => {
     setTouched(prev => ({ ...prev, [name]: true }));
     const error = validateField(name, formData[name]);
     if (error) {
@@ -173,9 +175,9 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
 
     // Mark all fields as touched
     const allTouched = Object.keys(formData).reduce((acc, key) => {
-      acc[key as keyof RestaurantFormData] = true;
+      acc[key as keyof RestaurantFormState] = true;
       return acc;
-    }, {} as Partial<Record<keyof RestaurantFormData, boolean>>);
+    }, {} as Partial<Record<keyof RestaurantFormState, boolean>>);
     setTouched(allTouched);
 
     // Validate form and locations
@@ -187,48 +189,36 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
     }
 
     try {
-      // Step 1: Create the restaurant
-      const submitData = {
+      // Step 1: Create the restaurant using correct DTO
+      const submitData: CreateRestaurantDTO = {
         name: formData.name.trim(),
-        phone: formData.phone.trim() || undefined,
         logo: formData.logo.trim() || undefined,
-        category: { id: parseInt(formData.categoryId) } as any, // Temporary fix for type mismatch
-        active: formData.active,
+        category: parseInt(formData.categoryId), // Backend expects numeric ID
       };
 
       const createdRestaurant = await create(submitData);
       console.log('Created restaurant:', createdRestaurant);
       console.log('Restaurant ID:', createdRestaurant?.id);
-      console.log('Restaurant data structure:', createdRestaurant?.data);
 
       // Step 2: Create restaurant locations
       const locationPromises = locations.map((location, index) => {
-        // Handle different response structures from backend
-        let restaurantId: number | undefined;
-
-        if (typeof createdRestaurant === 'object' && createdRestaurant !== null) {
-          // Check if it's the direct restaurant object
-          if ('id' in createdRestaurant && typeof createdRestaurant.id === 'number') {
-            restaurantId = createdRestaurant.id;
-          }
-          // Check if it's wrapped in a data property (API response format)
-          else if ('data' in createdRestaurant && createdRestaurant.data && typeof createdRestaurant.data === 'object' && 'id' in createdRestaurant.data) {
-            restaurantId = (createdRestaurant.data as any).id;
-          }
-        }
-
+        // Extract restaurant ID from response
+        const restaurantId = createdRestaurant?.id;
+        
         if (!restaurantId) {
           console.error('Restaurant creation response:', createdRestaurant);
           throw new Error('Restaurant ID not found after creation');
         }
 
+        // Use CreateRestaurantLocationDTO structure con phone
         const locationData = {
           address: location.address.trim(),
+          phone: location.phone.trim() || undefined, // Optional phone field
           latitude: parseFloat(location.latitude),
           longitude: parseFloat(location.longitude),
-          district: parseInt(location.districtId),
-          restaurant: restaurantId,
-        } as any; // TypeScript workaround for backend API mismatch
+          district: parseInt(location.districtId), // Backend expects district ID
+          restaurant: restaurantId, // Backend expects restaurant ID
+        };
 
         console.log(`Creating location ${index + 1} with payload:`, locationData);
         return restaurantLocationsService.create(locationData);
@@ -284,19 +274,7 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
           />
         </div>
 
-        {/* Phone Field */}
-        <div className="space-y-2">
-          <Input
-            label="Phone Number"
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => handleInputChange('phone', e.target.value)}
-            onBlur={() => handleBlur('phone')}
-            error={touched.phone ? errors.phone : ''}
-            placeholder="Enter phone number (optional)"
-            variant="filled"
-          />
-        </div>
+        {/* Phone field removed - now in RestaurantLocation */}
 
         {/* Logo Field */}
         <div className="space-y-2">

@@ -5,6 +5,7 @@ import type { Country, City, Province, District } from '../types';
 
 interface LocationData {
   address: string;
+  phone: string; // ¡IMPORTANTE: Agregar phone para RestaurantLocation!
   latitude: string;
   longitude: string;
   districtId: string;
@@ -108,8 +109,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         )}
       </div>
 
-      {/* Address Field */}
-      <div className="space-y-2">
+      {/* Address and Phone Fields */}
+      <div className="space-y-4">
         <Input
           label="Address"
           type="text"
@@ -119,6 +120,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           variant="filled"
           error={errors.address}
           required
+        />
+        
+        <Input
+          label="Phone Number"
+          type="tel"
+          value={location.phone}
+          onChange={(e) => handleInputChange('phone', e.target.value)}
+          placeholder="+51 999 888 777 (optional)"
+          variant="filled"
+          error={errors.phone}
         />
       </div>
 

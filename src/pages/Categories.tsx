@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Card, Button, Table, Modal, Input, ConfirmDialog, Toast, StatusBadge } from '../components/ui';
+import { Card, Button, Table, Modal, Input, ConfirmDialog, Toast } from '../components/ui';
 import { categoriesService } from '../services/api';
 import type { Category } from '../types';
 
@@ -137,8 +137,8 @@ const Categories: React.FC = () => {
         setIsEditModalOpen(false);
         setCategoryToEdit(null);
       } else {
-        // Create new category
-        await categoriesService.create(categoryData);
+        // Create new category - simplificado
+        await categoriesService.create(categoryData as any);
         setSuccessMessage(`Category "${categoryData.name}" created successfully`);
         setIsCreateModalOpen(false);
       }
@@ -236,10 +236,11 @@ const Categories: React.FC = () => {
       key: 'active',
       label: 'Status',
       render: (value: boolean) => (
-        <StatusBadge 
-          status={value ? 'active' : 'inactive'} 
-          text={value ? 'Active' : 'Inactive'}
-        />
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+          value ? 'bg-success-100 text-success-800' : 'bg-neutral-100 text-neutral-600'
+        }`}>
+          {value ? 'Active' : 'Inactive'}
+        </span>
       ),
     },
     {

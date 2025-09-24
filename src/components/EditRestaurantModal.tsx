@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Input, Select, Toast } from './ui';
+import { Modal, Button, Input, Select, Toast, ConfirmDialog } from './ui';
 import { useCategories } from '../hooks';
 import { restaurantsService } from '../services/api';
 import type { Restaurant } from '../types';
@@ -18,12 +18,9 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
   restaurant,
   onSuccess,
 }) => {
-  // Restaurant form state
+  // Restaurant form state - alineado con nueva estructura
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    phone: '',
-    email: '',
     logo: '',
     category_id: '',
     active: true,
@@ -36,15 +33,23 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
   // Success toast
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // Confirmation dialog
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<any>(null);
 
   // Initialize form when restaurant changes
   useEffect(() => {
     if (restaurant && isOpen) {
+      console.log('Inicializando formulario con restaurant:', {
+        id: restaurant.id,
+        name: restaurant.name,
+        active: restaurant.active,
+        category: restaurant.category
+      });
+      
       setFormData({
         name: restaurant.name || '',
-        description: restaurant.description || '',
-        phone: restaurant.phone || '',
-        email: restaurant.email || '',
         logo: restaurant.logo || '',
         category_id: restaurant.category?.id?.toString() || '',
         active: restaurant.active ?? true,
@@ -55,6 +60,7 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
 
   // Handle form input changes
   const handleInputChange = (name: string, value: string | boolean) => {
+    console.log('Cambiando campo:', name, 'a valor:', value);
     setFormData(prev => ({
       ...prev,
       [name]: value,
@@ -63,36 +69,64 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
 
 
 
-  // Handle form submission
+  // Handle form submission - mostrar confirmación primero
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!restaurant) return;
 
-    setLoading(true);
-    try {
-      // Update restaurant basic info
-      const updatedRestaurant = await restaurantsService.update(restaurant.id, {
-        name: formData.name,
-        description: formData.description,
-        phone: formData.phone,
-        email: formData.email,
-        logo: formData.logo,
-        category_id: parseInt(formData.category_id),
-        active: formData.active,
-      });
+    // Preparar datos para actualizar
+    const updateData: any = {
+      name: formData.name.trim(),
+      logo: formData.logo.trim() || undefined,
+      active: formData.active, // ¡IMPORTANTE: Incluir campo active!
+    };
+    
+    console.log('Datos a enviar al backend:', updateData);
+    console.log('Estado actual del formulario:', formData);
+    
+    if (formData.category_id) {
+      updateData.category = { id: parseInt(formData.category_id) };
+    }
+    
+    // Mostrar diálogo de confirmación
+    setPendingFormData(updateData);
+    setShowConfirmDialog(true);
+  };
 
-      setSuccessMessage(`Restaurante "${updatedRestaurant.name}" actualizado correctamente`);
-      setShowSuccessToast(true);
+  // Ejecutar actualización después de confirmación
+  const handleConfirmUpdate = async () => {
+    if (!restaurant || !pendingFormData) return;
+
+    setLoading(true);
+    setShowConfirmDialog(false);
+    
+    try {
+      const updatedRestaurant = await restaurantsService.update(restaurant.id, pendingFormData);
       
-      onSuccess();
+      // Cerrar modal primero
       onClose();
+      onSuccess();
+      
+      // Mostrar toast después de un breve delay
+      setTimeout(() => {
+        setSuccessMessage(`Restaurante "${updatedRestaurant?.name || formData.name}" actualizado correctamente`);
+        setShowSuccessToast(true);
+      }, 300);
+      
     } catch (error) {
       console.error('Error updating restaurant:', error);
       alert('Error al actualizar el restaurante. Por favor, inténtalo de nuevo.');
     } finally {
       setLoading(false);
+      setPendingFormData(null);
     }
+  };
+  
+  // Cancelar actualización
+  const handleCancelUpdate = () => {
+    setShowConfirmDialog(false);
+    setPendingFormData(null);
   };
 
 
@@ -100,9 +134,6 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
   const handleClose = () => {
     setFormData({
       name: '',
-      description: '',
-      phone: '',
-      email: '',
       logo: '',
       category_id: '',
       active: true,
@@ -153,16 +184,7 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
               </Select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2 text-neutral-700">Descripción</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Describe tu restaurante..."
-                rows={3}
-                className="w-full px-4 py-3 border border-neutral-300 focus:border-primary-500 bg-neutral-50 focus:bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
-              />
-            </div>
+            {/* Description field removed - no existe en backend */}
 
             <Input
               label="Logo URL"
@@ -172,23 +194,7 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
               placeholder="Ej: https://example.com/logo.png"
             />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Teléfono"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="Ej: +51 999 888 777"
-              />
-              
-              <Input
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="Ej: contacto@restaurante.com"
-              />
-            </div>
+            {/* Phone y Email fields removed - ahora están en RestaurantLocation */}
 
             {/* Active Status Toggle */}
             <div className="flex items-center space-x-3">
@@ -227,6 +233,19 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
         </form>
       </Modal>
 
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={handleCancelUpdate}
+        onConfirm={handleConfirmUpdate}
+        title="Confirmar Actualización"
+        message={`¿Estás seguro de que deseas actualizar la información del restaurante "${restaurant?.name}"?`}
+        confirmText="Sí, Actualizar"
+        cancelText="Cancelar"
+        type="warning"
+        loading={loading}
+      />
 
       {/* Success Toast */}
       <Toast

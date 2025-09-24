@@ -1,13 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Card, Button, Table, Modal, Input, Select, SearchableSelect, ConfirmDialog, Toast } from '../components/ui';
-import { restaurantLocationsService, locationsService, restaurantsService } from '../services/api';
-import type { RestaurantLocation, Restaurant, Country, City, Province, District } from '../types';
+import { restaurantLocationsService, restaurantsService, locationsService } from '../services/api';
+import { OperatingHoursManager, OpenStatusIndicator } from '../components/operating-hours';
+import { OperatingHoursUtils } from '../utils';
+import { useCountries, useCitiesByCountry, useProvincesByCity, useDistrictsByProvince } from '../hooks';
+import type { RestaurantLocation, Restaurant, District, Country, City, Province, OperatingHours } from '../types';
 
-interface LocationFormData extends Omit<RestaurantLocation, 'id'> {
+// Formulario alineado con nueva estructura del backend
+interface LocationFormData {
   id?: number;
+  address: string;
+  phone?: string;
+  latitude: number;
+  longitude: number;
+  // Jerarquía geográfica completa
+  countryId: number;
+  cityId: number;
+  provinceId: number;
+  districtId: number;
+  restaurantId: number;
+  operatingHours?: OperatingHours;
   isNew?: boolean;
 }
+
+// Helper function to create fallback geographic hierarchy
+const createFallbackGeographicHierarchy = (location: RestaurantLocation): any | null => {
+  // Strategy 1: Try to use district info if available
+  if (location?.district && location.district.id && location.district.id > 0) {
+    const fallback = {
+      id: location.district.id,
+      name: location.district.name || `Distrito ${location.district.id}`,
+      province: {
+        id: location.district.province?.id || 0,
+        name: location.district.province?.name || 'Provincia Desconocida',
+        city: {
+          id: location.district.province?.city?.id || 0,
+          name: location.district.province?.city?.name || 'Ciudad Desconocida',
+          country: {
+            id: location.district.province?.city?.country?.id || 0,
+            name: location.district.province?.city?.country?.name || 'País Desconocido'
+          }
+        }
+      }
+    };
+    
+    return fallback;
+  }
+  
+  // Strategy 2: Check if there's a districtId field directly (some APIs might structure it differently)
+  if (location && (location as any).districtId) {
+    const fallback = {
+      id: (location as any).districtId,
+      name: `Distrito ${(location as any).districtId}`,
+      province: {
+        id: (location as any).provinceId || 0,
+        name: 'Provincia Desconocida',
+        city: {
+          id: (location as any).cityId || 0,
+          name: 'Ciudad Desconocida',
+          country: {
+            id: (location as any).countryId || 0,
+            name: 'País Desconocido'
+          }
+        }
+      }
+    };
+    
+    return fallback;
+  }
+  
+  return null;
+};
 
 const RestaurantLocations: React.FC = () => {
   // State for restaurants and selected restaurant
@@ -28,23 +92,19 @@ const RestaurantLocations: React.FC = () => {
 
   // Form state
   const [formData, setFormData] = useState<LocationFormData>({
-    restaurant_id: 0,
+    restaurantId: 0,
     address: '',
     phone: '',
     latitude: 0,
     longitude: 0,
-    country_id: 0,
-    city_id: 0,
-    province_id: 0,
-    district_id: 0,
+    countryId: 0,
+    cityId: 0,
+    provinceId: 0,
+    districtId: 0,
+    operatingHours: OperatingHoursUtils.getDefaultOperatingHours(),
     isNew: true,
   });
 
-  // Geographic data
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
 
   // Delete confirmation
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -73,10 +133,7 @@ const RestaurantLocations: React.FC = () => {
   const loadRestaurants = async () => {
     setRestaurantsLoading(true);
     try {
-      const [restaurantsData, countriesData] = await Promise.all([
-        restaurantsService.getAll(),
-        locationsService.getCountries(),
-      ]);
+      const restaurantsData = await restaurantsService.getAll();
 
       const activeRestaurants = Array.isArray(restaurantsData) 
         ? restaurantsData.filter(r => r.active) 
@@ -92,9 +149,6 @@ const RestaurantLocations: React.FC = () => {
       });
       
       setRestaurantsWithLocationCount(restaurantsWithCounts);
-      setCountries(Array.isArray(countriesData) ? countriesData : []);
-      
-      console.log('Loaded restaurants with locations:', restaurantsWithCounts);
     } catch (err) {
       console.error('Error loading restaurants:', err);
       setError('Error loading restaurants. Please try again.');
@@ -109,14 +163,12 @@ const RestaurantLocations: React.FC = () => {
       // First, check if we already have the locations from the restaurant data
       const restaurantWithLocations = restaurants.find(r => r.id === restaurantId);
       if (restaurantWithLocations?.locations && restaurantWithLocations.locations.length > 0) {
-        console.log('Using cached locations from restaurant data');
         setLocations(restaurantWithLocations.locations);
         setLocationsLoading(false);
         return;
       }
       
       // If not found in cache, fetch from API
-      console.log('Fetching locations from API for restaurant:', restaurantId);
       const locationsData = await restaurantLocationsService.getByRestaurant(restaurantId);
       setLocations(Array.isArray(locationsData) ? locationsData : []);
     } catch (err) {
@@ -127,24 +179,38 @@ const RestaurantLocations: React.FC = () => {
     }
   };
 
+  // Function to force refresh from server (bypassing cache)
+  const forceRefreshRestaurantLocations = async (restaurantId: number) => {
+    setLocationsLoading(true);
+    try {
+      const locationsData = await restaurantLocationsService.getByRestaurant(restaurantId);
+      setLocations(Array.isArray(locationsData) ? locationsData : []);
+    } catch (err) {
+      console.error('Error force refreshing restaurant locations:', err);
+      setError('Error loading locations. Please try again.');
+    } finally {
+      setLocationsLoading(false);
+    }
+  };
+
   // Handle form input changes
-  const handleInputChange = (name: string, value: string | number) => {
+  const handleInputChange = (name: string, value: string | number | OperatingHours) => {
     setFormData(prev => ({
       ...prev,
       [name]: value,
     }));
 
     // Load dependent geographic data
-    if (name === 'country_id' && value) {
-      loadCitiesByCountry(Number(value));
-      setFormData(prev => ({ ...prev, city_id: 0, province_id: 0, district_id: 0 }));
-    } else if (name === 'city_id' && value) {
-      loadProvincesByCity(Number(value));
-      setFormData(prev => ({ ...prev, province_id: 0, district_id: 0 }));
-    } else if (name === 'province_id' && value) {
-      loadDistrictsByProvince(Number(value));
-      setFormData(prev => ({ ...prev, district_id: 0 }));
-    }
+    // La nueva estructura usa solo district - simplificamos la lógica geográfica
+    // El backend maneja la jerarquía geográfica a través de la relación District
+  };
+
+  // Handle operating hours change
+  const handleOperatingHoursChange = (hours: OperatingHours) => {
+    setFormData(prev => ({
+      ...prev,
+      operatingHours: hours,
+    }));
   };
 
   // Handle restaurant selection
@@ -154,33 +220,6 @@ const RestaurantLocations: React.FC = () => {
     setError(null); // Clear any previous errors
   };
 
-  // Geographic data loading functions
-  const loadCitiesByCountry = async (countryId: number) => {
-    try {
-      const citiesData = await locationsService.getCitiesByCountry(countryId);
-      setCities(citiesData);
-    } catch (error) {
-      console.error('Error loading cities:', error);
-    }
-  };
-
-  const loadProvincesByCity = async (cityId: number) => {
-    try {
-      const provincesData = await locationsService.getProvincesByCity(cityId);
-      setProvinces(provincesData);
-    } catch (error) {
-      console.error('Error loading provinces:', error);
-    }
-  };
-
-  const loadDistrictsByProvince = async (provinceId: number) => {
-    try {
-      const districtsData = await locationsService.getDistrictsByProvince(provinceId);
-      setDistricts(districtsData);
-    } catch (error) {
-      console.error('Error loading districts:', error);
-    }
-  };
 
   // Handle create new location
   const handleCreateLocation = () => {
@@ -190,15 +229,16 @@ const RestaurantLocations: React.FC = () => {
     }
     
     setFormData({
-      restaurant_id: selectedRestaurant.id,
+      restaurantId: selectedRestaurant.id,
       address: '',
       phone: '',
       latitude: 0,
       longitude: 0,
-      country_id: 0,
-      city_id: 0,
-      province_id: 0,
-      district_id: 0,
+      countryId: 0,
+      cityId: 0,
+      provinceId: 0,
+      districtId: 0,
+      operatingHours: OperatingHoursUtils.getDefaultOperatingHours(),
       isNew: true,
     });
     setIsCreateModalOpen(true);
@@ -206,80 +246,167 @@ const RestaurantLocations: React.FC = () => {
 
   // Handle edit location
   const handleEditLocation = async (location: RestaurantLocation) => {
-    setLocationToEdit(location);
-    setFormData({
-      id: location.id,
-      restaurant_id: location.restaurant_id,
-      address: location.address,
-      phone: location.phone || '',
-      latitude: location.latitude,
-      longitude: location.longitude,
-      country_id: location.country_id,
-      city_id: location.city_id,
-      province_id: location.province_id,
-      district_id: location.district_id,
-      isNew: false,
-    });
-
-    // Load dependent geographic data for editing
-    if (location.country_id) {
-      await loadCitiesByCountry(location.country_id);
-      if (location.city_id) {
-        await loadProvincesByCity(location.city_id);
-        if (location.province_id) {
-          await loadDistrictsByProvince(location.province_id);
-        }
+    try {
+      setLocationToEdit(location);
+      
+      // Check if we have minimum required data (district, province, city)
+      if (!location.district?.province?.city) {
+        alert('Error: Esta ubicación no tiene datos geográficos mínimos (distrito/provincia/ciudad). Contacte al administrador.');
+        return;
       }
+      
+      // Check if we have restaurant data
+      if (!location.restaurant && !selectedRestaurant) {
+        alert('Error: No se puede determinar el restaurante para esta ubicación. Seleccione un restaurante e inténtelo de nuevo.');
+        return;
+      }
+      
+      // Use restaurant from location or fallback to selectedRestaurant
+      const restaurantId = location.restaurant?.id || selectedRestaurant?.id;
+      if (!restaurantId) {
+        alert('Error: No se puede determinar el ID del restaurante.');
+        return;
+      }
+      
+      setFormData({
+        id: location.id,
+        restaurantId: restaurantId,
+        address: location.address,
+        phone: location.phone || '',
+        latitude: location.latitude,
+        longitude: location.longitude,
+        // Use available geographic data (country defaults to 0 if missing)
+        countryId: location.district.province.city.country?.id || 0,
+        cityId: location.district.province.city.id,
+        provinceId: location.district.province.id,
+        districtId: location.district.id,
+        operatingHours: location.operatingHours || OperatingHoursUtils.getDefaultOperatingHours(),
+        isNew: false,
+      });
+      
+      setIsEditModalOpen(true);
+    } catch (error) {
+      console.error('Error setting up location edit:', error);
+      alert('Error al cargar la información de la ubicación. Por favor, inténtalo de nuevo.');
     }
-
-    setIsEditModalOpen(true);
   };
 
   // Handle form submission (create or update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
-    if (!formData.restaurant_id || !formData.address || !formData.country_id || 
-        !formData.city_id || !formData.province_id || !formData.district_id) {
-      alert('Por favor completa todos los campos requeridos');
+    // Enhanced validation - Check if this is a basic edit mode (incomplete geographic data)
+    const isBasicEditMode = !formData.isNew && 
+      (formData.countryId === 0 || formData.cityId === 0 || formData.provinceId === 0 || formData.districtId === 0);
+    
+    if (!formData.restaurantId) {
+      alert('Por favor, selecciona un restaurante');
+      return;
+    }
+    if (!formData.address?.trim()) {
+      alert('Por favor, ingresa una dirección válida');
+      return;
+    }
+    
+    // Only validate geographic hierarchy for new locations or complete existing ones
+    if (!isBasicEditMode) {
+      if (!formData.countryId) {
+        alert('Por favor, selecciona un país');
+        return;
+      }
+      if (!formData.cityId) {
+        alert('Por favor, selecciona una ciudad');
+        return;
+      }
+      if (!formData.provinceId) {
+        alert('Por favor, selecciona una provincia');
+        return;
+      }
+      if (!formData.districtId) {
+        alert('Por favor, selecciona un distrito');
+        return;
+      }
+    }
+    
+    if (formData.latitude === undefined || formData.longitude === undefined || formData.latitude === 0 || formData.longitude === 0) {
+      alert('Por favor, ingresa coordenadas de ubicación válidas (latitud y longitud)');
+      return;
+    }
+    if (!formData.operatingHours) {
+      alert('Por favor, configura los horarios de operación');
       return;
     }
 
     setFormLoading(true);
     try {
-      const locationData = {
-        restaurant_id: formData.restaurant_id,
-        address: formData.address,
-        phone: formData.phone,
-        latitude: Number(formData.latitude),
-        longitude: Number(formData.longitude),
-        country_id: formData.country_id,
-        city_id: formData.city_id,
-        province_id: formData.province_id,
-        district_id: formData.district_id,
-      };
+
+      // Prepare location data based on edit mode
+      let locationData: any;
+      
+      if (isBasicEditMode) {
+        // For basic edit mode, only send basic fields (don't change district)
+        locationData = {
+          address: formData.address.trim(),
+          phone: formData.phone?.trim() || null,
+          latitude: Number(formData.latitude),
+          longitude: Number(formData.longitude),
+          operatingHours: formData.operatingHours,
+        };
+      } else {
+        // Full location data for new locations or complete updates
+        locationData = {
+          restaurant: formData.restaurantId,
+          address: formData.address.trim(),
+          phone: formData.phone?.trim() || null,
+          latitude: Number(formData.latitude),
+          longitude: Number(formData.longitude),
+          district: formData.districtId,
+          operatingHours: formData.operatingHours,
+        };
+      }
 
       if (formData.isNew) {
-        // Create new location
-        await restaurantLocationsService.create(locationData);
+        // Create new location - always requires full data
+        const result = await restaurantLocationsService.create(locationData);
+        
+        // Force refresh locations after creation (bypass cache)
+        if (selectedRestaurant) {
+          await forceRefreshRestaurantLocations(selectedRestaurant.id);
+        }
+        
         setSuccessMessage('Ubicación creada exitosamente');
         setIsCreateModalOpen(false);
       } else {
-        // Update existing location
-        await restaurantLocationsService.update(formData.id!, locationData);
-        setSuccessMessage('Ubicación actualizada exitosamente');
+        // Update existing location - may be basic or full update
+        const result = await restaurantLocationsService.update(formData.id!, locationData);
+        
+        // Update local state with the fresh data from backend
+        setLocations(prevLocations => 
+          prevLocations.map(loc => 
+            loc.id === formData.id ? result : loc
+          )
+        );
+        
+        // Force refresh from server to get latest data (bypass cache)
+        if (selectedRestaurant) {
+          await forceRefreshRestaurantLocations(selectedRestaurant.id);
+        }
+        
+        if (isBasicEditMode) {
+          setSuccessMessage('Ubicación actualizada exitosamente (edición básica)');
+        } else {
+          setSuccessMessage('Ubicación actualizada exitosamente');
+        }
+        
         setIsEditModalOpen(false);
         setLocationToEdit(null);
       }
 
       setShowSuccessToast(true);
-      if (selectedRestaurant) {
-        await loadRestaurantLocations(selectedRestaurant.id); // Refresh locations
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving location:', error);
-      alert('Error al guardar la ubicación. Por favor, inténtalo de nuevo.');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Error desconocido';
+      alert(`Error al guardar la ubicación: ${errorMessage}. Por favor, inténtalo de nuevo.`);
     } finally {
       setFormLoading(false);
     }
@@ -316,15 +443,16 @@ const RestaurantLocations: React.FC = () => {
   const handleCloseCreateModal = () => {
     setIsCreateModalOpen(false);
     setFormData({
-      restaurant_id: 0,
+      restaurantId: 0,
       address: '',
       phone: '',
       latitude: 0,
       longitude: 0,
-      country_id: 0,
-      city_id: 0,
-      province_id: 0,
-      district_id: 0,
+      countryId: 0,
+      cityId: 0,
+      provinceId: 0,
+      districtId: 0,
+      operatingHours: OperatingHoursUtils.getDefaultOperatingHours(),
       isNew: true,
     });
   };
@@ -375,9 +503,23 @@ const RestaurantLocations: React.FC = () => {
       ),
     },
     {
+      key: 'status',
+      label: 'Status',
+      render: (_: any, row: RestaurantLocation) => (
+        <div className="space-y-2">
+          <OpenStatusIndicator
+            operatingHours={row.operatingHours || OperatingHoursUtils.getDefaultOperatingHours()}
+            variant="minimal"
+            size="sm"
+            showNextChange={false}
+          />
+        </div>
+      ),
+    },
+    {
       key: 'coordinates',
       label: 'Coordinates',
-      render: (value: any, row: RestaurantLocation) => (
+      render: (_: any, row: RestaurantLocation) => (
         <div className="text-sm space-y-1">
           <div className="flex items-center space-x-1">
             <span className="font-medium text-neutral-600">Lat:</span>
@@ -482,7 +624,7 @@ const RestaurantLocations: React.FC = () => {
               options={restaurantsWithLocationCount.map((restaurant) => ({
                 value: restaurant.id.toString(),
                 label: restaurant.name,
-                subtitle: `${restaurant.locationCount} location${restaurant.locationCount !== 1 ? 's' : ''}${restaurant.phone ? ` • ${restaurant.phone}` : ''}`,
+                subtitle: `${restaurant.locationCount} location${restaurant.locationCount !== 1 ? 's' : ''}`,
                 icon: (
                   <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
                     {restaurant.name.charAt(0)}
@@ -507,22 +649,10 @@ const RestaurantLocations: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-bold text-neutral-900">{selectedRestaurant.name}</h2>
                   <div className="flex items-center space-x-4 text-sm text-neutral-600">
-                    {selectedRestaurant.phone && (
-                      <span className="flex items-center space-x-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        <span>{selectedRestaurant.phone}</span>
-                      </span>
-                    )}
-                    {selectedRestaurant.email && (
-                      <span className="flex items-center space-x-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                        </svg>
-                        <span>{selectedRestaurant.email}</span>
-                      </span>
-                    )}
+                    {/* Phone y email ahora están en RestaurantLocation, no en Restaurant */}
+                    <span className="text-neutral-500 text-sm">
+                      Contacto disponible en ubicaciones individuales
+                    </span>
                   </div>
                 </div>
               </div>
@@ -561,7 +691,7 @@ const RestaurantLocations: React.FC = () => {
             <Table
               columns={columns}
               data={locations}
-              variant="clean"
+              variant="striped"
               emptyMessage={`No locations found for ${selectedRestaurant.name}. Add the first location to get started.`}
             />
           </Card>
@@ -589,16 +719,13 @@ const RestaurantLocations: React.FC = () => {
           isOpen={isCreateModalOpen}
           onClose={handleCloseCreateModal}
           title="Add New Location"
-          size="lg"
+          size="xl"
         >
           <LocationForm
             formData={formData}
             restaurants={restaurants}
-            countries={countries}
-            cities={cities}
-            provinces={provinces}
-            districts={districts}
             onInputChange={handleInputChange}
+            onOperatingHoursChange={handleOperatingHoursChange}
             onSubmit={handleSubmit}
             onCancel={handleCloseCreateModal}
             loading={formLoading}
@@ -610,20 +737,19 @@ const RestaurantLocations: React.FC = () => {
           isOpen={isEditModalOpen}
           onClose={handleCloseEditModal}
           title={`Edit Location: ${locationToEdit?.address || ''}`}
-          size="lg"
+          size="xl"
         >
           <LocationForm
             formData={formData}
             restaurants={restaurants}
-            countries={countries}
-            cities={cities}
-            provinces={provinces}
-            districts={districts}
             onInputChange={handleInputChange}
+            onOperatingHoursChange={handleOperatingHoursChange}
             onSubmit={handleSubmit}
             onCancel={handleCloseEditModal}
             loading={formLoading}
             isEdit
+            isBasicEditMode={!formData.isNew && 
+              (formData.countryId === 0 || formData.cityId === 0 || formData.provinceId === 0 || formData.districtId === 0)}
           />
         </Modal>
 
@@ -660,32 +786,78 @@ const RestaurantLocations: React.FC = () => {
 interface LocationFormProps {
   formData: LocationFormData;
   restaurants: Restaurant[];
-  countries: Country[];
-  cities: City[];
-  provinces: Province[];
-  districts: District[];
   onInputChange: (name: string, value: string | number) => void;
+  onOperatingHoursChange: (hours: OperatingHours) => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
   loading: boolean;
   isEdit?: boolean;
+  isBasicEditMode?: boolean;
 }
 
 const LocationForm: React.FC<LocationFormProps> = ({
   formData,
-  restaurants,
-  countries,
-  cities,
-  provinces,
-  districts,
   onInputChange,
+  onOperatingHoursChange,
   onSubmit,
   onCancel,
   loading,
   isEdit = false,
+  isBasicEditMode = false,
 }) => {
+  // Hooks para jerarquía geográfica
+  const { data: countries, loading: countriesLoading } = useCountries();
+  const { data: cities, loading: citiesLoading } = useCitiesByCountry(
+    formData.countryId || null
+  );
+  const { data: provinces, loading: provincesLoading } = useProvincesByCity(
+    formData.cityId || null
+  );
+  const { data: districts, loading: districtsLoading } = useDistrictsByProvince(
+    formData.provinceId || null
+  );
+
+  // Handlers para selección jerárquica
+  const handleCountryChange = (countryId: number) => {
+    onInputChange('countryId', countryId);
+    onInputChange('cityId', 0);
+    onInputChange('provinceId', 0);
+    onInputChange('districtId', 0);
+  };
+
+  const handleCityChange = (cityId: number) => {
+    onInputChange('cityId', cityId);
+    onInputChange('provinceId', 0);
+    onInputChange('districtId', 0);
+  };
+
+  const handleProvinceChange = (provinceId: number) => {
+    onInputChange('provinceId', provinceId);
+    onInputChange('districtId', 0);
+  };
+
+  const handleDistrictChange = (districtId: number) => {
+    onInputChange('districtId', districtId);
+  };
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {/* Basic Edit Mode Warning */}
+      {isBasicEditMode && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center space-x-2 mb-2">
+            <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <h4 className="font-medium text-amber-800">Modo de Edición Básica</h4>
+          </div>
+          <p className="text-sm text-amber-700">
+            Esta ubicación tiene datos geográficos incompletos. Solo puedes editar la dirección, teléfono, coordenadas y horarios de operación. 
+            Para cambiar la ubicación geográfica (país, ciudad, provincia, distrito), necesitarás eliminar y recrear esta ubicación.
+          </p>
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 gap-4">
         <Input
           label="Phone"
@@ -726,67 +898,128 @@ const LocationForm: React.FC<LocationFormProps> = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select
-          label="Country"
-          value={formData.country_id}
-          onChange={(e) => onInputChange('country_id', parseInt(e.target.value))}
-          required
-        >
-          <option value={0}>Select country</option>
-          {countries.map((country) => (
-            <option key={country.id} value={country.id}>
-              {country.name}
-            </option>
-          ))}
-        </Select>
+      {/* Selección geográfica jerárquica */}
+      <div className={`space-y-4 ${isBasicEditMode ? 'opacity-50' : ''}`}>
+        <div className="flex items-center justify-between">
+          <h4 className="text-base font-semibold text-neutral-900">Ubicación Geográfica</h4>
+          {isBasicEditMode && (
+            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+              Solo lectura
+            </span>
+          )}
+        </div>
+        
+        {/* Country Select */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="País"
+            value={formData.countryId || 0}
+            onChange={(e) => handleCountryChange(parseInt(e.target.value))}
+            required
+            disabled={countriesLoading || isBasicEditMode}
+          >
+            <option value={0}>Seleccionar país</option>
+            {countries?.map((country: Country) => (
+              <option key={country.id} value={country.id}>
+                {country.name}
+              </option>
+            ))}
+          </Select>
 
-        <Select
-          label="City"
-          value={formData.city_id}
-          onChange={(e) => onInputChange('city_id', parseInt(e.target.value))}
-          required
-          disabled={!formData.country_id}
-        >
-          <option value={0}>Select city</option>
-          {cities.map((city) => (
-            <option key={city.id} value={city.id}>
-              {city.name}
+          {/* City Select */}
+          <Select
+            label="Ciudad"
+            value={formData.cityId || 0}
+            onChange={(e) => handleCityChange(parseInt(e.target.value))}
+            required
+            disabled={citiesLoading || !formData.countryId || isBasicEditMode}
+          >
+            <option value={0}>
+              {formData.countryId ? 'Seleccionar ciudad' : 'Seleccionar país primero'}
             </option>
-          ))}
-        </Select>
+            {cities?.map((city: City) => (
+              <option key={city.id} value={city.id}>
+                {city.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Province Select */}
+          <Select
+            label="Provincia"
+            value={formData.provinceId || 0}
+            onChange={(e) => handleProvinceChange(parseInt(e.target.value))}
+            required
+            disabled={provincesLoading || !formData.cityId || isBasicEditMode}
+          >
+            <option value={0}>
+              {formData.cityId ? 'Seleccionar provincia' : 'Seleccionar ciudad primero'}
+            </option>
+            {provinces?.map((province: Province) => (
+              <option key={province.id} value={province.id}>
+                {province.name}
+              </option>
+            ))}
+          </Select>
+
+          {/* District Select */}
+          <Select
+            label="Distrito"
+            value={formData.districtId || 0}
+            onChange={(e) => handleDistrictChange(parseInt(e.target.value))}
+            required
+            disabled={districtsLoading || !formData.provinceId || isBasicEditMode}
+          >
+            <option value={0}>
+              {formData.provinceId ? 'Seleccionar distrito' : 'Seleccionar provincia primero'}
+            </option>
+            {districts?.map((district: District) => (
+              <option key={district.id} value={district.id}>
+                {district.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        
+        <div className="p-3 bg-blue-50 rounded-lg">
+          <p className="text-xs text-blue-700">
+            💡 <strong>Tip:</strong> La selección es jerárquica. Primero selecciona el país, luego la ciudad, provincia y finalmente el distrito.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select
-          label="Province"
-          value={formData.province_id}
-          onChange={(e) => onInputChange('province_id', parseInt(e.target.value))}
-          required
-          disabled={!formData.city_id}
-        >
-          <option value={0}>Select province</option>
-          {provinces.map((province) => (
-            <option key={province.id} value={province.id}>
-              {province.name}
-            </option>
-          ))}
-        </Select>
-
-        <Select
-          label="District"
-          value={formData.district_id}
-          onChange={(e) => onInputChange('district_id', parseInt(e.target.value))}
-          required
-          disabled={!formData.province_id}
-        >
-          <option value={0}>Select district</option>
-          {districts.map((district) => (
-            <option key={district.id} value={district.id}>
-              {district.name}
-            </option>
-          ))}
-        </Select>
+      {/* Operating Hours Section */}
+      <div className="border-t border-neutral-200 pt-6">
+        <div className="mb-4">
+          <h4 className="text-lg font-semibold text-neutral-900 mb-2">
+            Horarios de Operación
+          </h4>
+          <p className="text-sm text-neutral-600">
+            Configure los horarios de funcionamiento para esta ubicación
+          </p>
+        </div>
+        
+        {formData.operatingHours && (
+          <div className="mb-4">
+            <OpenStatusIndicator
+              operatingHours={formData.operatingHours}
+              locationName="Vista Previa"
+              variant="badge"
+              size="md"
+              showNextChange={true}
+            />
+          </div>
+        )}
+        
+        <OperatingHoursManager
+          operatingHours={formData.operatingHours}
+          onChange={onOperatingHoursChange}
+          locationName={formData.address || 'Nueva Ubicación'}
+          showPreview={false}
+          disabled={loading}
+        />
       </div>
 
       <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-200">

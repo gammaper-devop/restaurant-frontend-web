@@ -7,6 +7,7 @@ import {
   usersService,
   locationsService,
   restaurantLocationsService,
+  nearbyRestaurantsService,
   dashboardService,
 } from '../services/api';
 import type {
@@ -14,19 +15,14 @@ import type {
   Category,
   Dish,
   Menu,
+  CreateRestaurantDTO,
+  CreateRestaurantLocationDTO,
+  NearbyRestaurantQuery,
+  ApiState,
+  ApiListState
 } from '../types';
 
-interface ApiState<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-}
-
-interface ApiListState<T> {
-  data: T[];
-  loading: boolean;
-  error: string | null;
-}
+// Eliminar interfaces duplicadas - ahora están en types/index.ts
 
 // Generic hook for single entity fetching
 function useApiEntity<T>(
@@ -214,7 +210,7 @@ export const useRestaurantMutations = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const create = useCallback(async (data: Omit<Restaurant, 'id' | 'created_at' | 'updated_at'>) => {
+  const create = useCallback(async (data: CreateRestaurantDTO) => {
     try {
       setLoading(true);
       setError(null);
@@ -345,7 +341,7 @@ export const useDishMutations = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const create = useCallback(async (data: Omit<Dish, 'id' | 'created_at' | 'updated_at'>) => {
+  const create = useCallback(async (data: any) => { // Simplified for now
     try {
       setLoading(true);
       setError(null);
@@ -396,7 +392,7 @@ export const useMenuMutations = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const create = useCallback(async (data: Omit<Menu, 'id' | 'created_at' | 'updated_at'>) => {
+  const create = useCallback(async (data: any) => { // Simplified for now
     try {
       setLoading(true);
       setError(null);
@@ -470,3 +466,120 @@ export const useMenuMutations = () => {
 
   return { create, update, remove, addDish, removeDish, loading, error };
 };
+
+// ============================================================================
+// NUEVOS HOOKS PARA OPERATING HOURS Y UBICACIONES
+// ============================================================================
+
+/**
+ * Hook para obtener estado operacional de una ubicación
+ */
+export const useLocationOperationalStatus = (locationId: number | null) => {
+  return useApiEntity(
+    () => locationId ? restaurantLocationsService.isCurrentlyOpen(locationId) : Promise.reject('No location ID'),
+    [locationId]
+  );
+};
+
+/**
+ * Hook para verificar si una ubicación está abierta en un momento específico
+ */
+export const useLocationTimeCheck = (locationId: number | null, datetime: string | null) => {
+  return useApiEntity(
+    () => locationId && datetime 
+      ? restaurantLocationsService.isOpenAt(locationId, datetime) 
+      : Promise.reject('Missing location ID or datetime'),
+    [locationId, datetime]
+  );
+};
+
+/**
+ * Hook para obtener ubicaciones actualmente abiertas
+ */
+export const useCurrentlyOpenLocations = () => {
+  return useApiList(restaurantLocationsService.getCurrentlyOpenLocations);
+};
+
+/**
+ * Hook para búsqueda de restaurantes por proximidad
+ */
+export const useNearbyRestaurants = (query: NearbyRestaurantQuery | null, filters?: { categoryId?: number; isOpen?: boolean }) => {
+  return useApiList(
+    () => query 
+      ? nearbyRestaurantsService.searchNearbyWithFilters(query, filters)
+      : Promise.resolve([]),
+    [query?.lat, query?.lng, query?.radius, filters?.categoryId, filters?.isOpen]
+  );
+};
+
+/**
+ * Hook de mutaciones para ubicaciones de restaurantes con soporte para operating hours
+ */
+export const useRestaurantLocationMutations = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useCallback(async (data: CreateRestaurantLocationDTO) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await restaurantLocationsService.create(data);
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create restaurant location';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const update = useCallback(async (id: number, data: Partial<CreateRestaurantLocationDTO>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await restaurantLocationsService.update(id, data);
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update restaurant location';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateOperatingHours = useCallback(async (id: number, operatingHours: any) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await restaurantLocationsService.updateOperatingHours(id, { operatingHours });
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update operating hours';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const remove = useCallback(async (id: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await restaurantLocationsService.delete(id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete restaurant location';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { create, update, updateOperatingHours, remove, loading, error };
+};
+
+// Export specific operating hours hook
+export { useOperatingHours, useMultiLocationOperatingHours } from './useOperatingHours';

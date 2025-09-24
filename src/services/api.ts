@@ -11,7 +11,14 @@ import type {
   City, 
   Province, 
   District,
-  RestaurantLocation
+  RestaurantLocation,
+  CreateRestaurantDTO,
+  CreateRestaurantLocationDTO,
+  UpdateOperatingHoursDTO,
+  NearbyRestaurantQuery,
+  NearbyRestaurantResult,
+  LocationOperationalStatus,
+  LocationTimeCheck
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
@@ -120,24 +127,27 @@ export const restaurantsService = {
   getAll: async (): Promise<Restaurant[]> => {
     const response = await api.get('/restaurants');
     console.log('Restaurants API response:', response.data);
-    // Handle different response formats
+    // Manejar respuesta estructurada del backend
     const data = response.data?.data || response.data;
     return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<Restaurant> => {
     const response = await api.get(`/restaurants/${id}`);
-    return response.data;
+    // Manejar respuesta estructurada del backend
+    return response.data?.data || response.data;
   },
 
-  create: async (restaurantData: Omit<Restaurant, 'id' | 'createdAt' | 'updatedAt'>): Promise<Restaurant> => {
+  create: async (restaurantData: CreateRestaurantDTO): Promise<Restaurant> => {
     const response = await api.post('/restaurants', restaurantData);
-    return response.data;
+    // Manejar respuesta estructurada del backend
+    return response.data?.data || response.data;
   },
 
   update: async (id: number, restaurantData: Partial<Restaurant>): Promise<Restaurant> => {
     const response = await api.put(`/restaurants/${id}`, restaurantData);
-    return response.data;
+    // Manejar respuesta estructurada del backend
+    return response.data?.data || response.data;
   },
 
   delete: async (id: number): Promise<void> => {
@@ -376,35 +386,60 @@ export const locationsService = {
   },
 };
 
-// Restaurant Locations Service
+// Restaurant Locations Service - Alineado con capacidades completas del backend
 export const restaurantLocationsService = {
+  // CRUD básico
   getAll: async (): Promise<RestaurantLocation[]> => {
     const response = await api.get('/restaurants/locations');
-    return response.data;
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<RestaurantLocation> => {
     const response = await api.get(`/restaurants/locations/${id}`);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   getByRestaurant: async (restaurantId: number): Promise<RestaurantLocation[]> => {
     const response = await api.get(`/restaurants/${restaurantId}/locations`);
-    return response.data;
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
-  create: async (locationData: Omit<RestaurantLocation, 'id'>): Promise<RestaurantLocation> => {
+  create: async (locationData: CreateRestaurantLocationDTO): Promise<RestaurantLocation> => {
     const response = await api.post('/restaurants/locations', locationData);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
-  update: async (id: number, locationData: Partial<RestaurantLocation>): Promise<RestaurantLocation> => {
+  update: async (id: number, locationData: Partial<CreateRestaurantLocationDTO>): Promise<RestaurantLocation> => {
     const response = await api.put(`/restaurants/locations/${id}`, locationData);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/restaurants/locations/${id}`);
+  },
+
+  // NUEVOS ENDPOINTS PARA OPERATING HOURS (¡anteriormente faltantes!)
+  updateOperatingHours: async (id: number, operatingHoursData: UpdateOperatingHoursDTO): Promise<RestaurantLocation> => {
+    const response = await api.patch(`/restaurants/locations/${id}/operating-hours`, operatingHoursData);
+    return response.data?.data || response.data;
+  },
+
+  isCurrentlyOpen: async (id: number): Promise<LocationOperationalStatus> => {
+    const response = await api.get(`/restaurants/locations/${id}/is-open`);
+    return response.data?.data || response.data;
+  },
+
+  isOpenAt: async (id: number, datetime: string): Promise<LocationTimeCheck> => {
+    const response = await api.get(`/restaurants/locations/${id}/is-open-at/${encodeURIComponent(datetime)}`);
+    return response.data?.data || response.data;
+  },
+
+  getCurrentlyOpenLocations: async (): Promise<RestaurantLocation[]> => {
+    const response = await api.get('/restaurants/locations/currently-open');
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 };
 
@@ -481,6 +516,40 @@ export const dashboardService = {
       return [];
     }
   }
+};
+
+// NUEVO: Nearby Restaurants Service - Búsqueda por proximidad
+export const nearbyRestaurantsService = {
+  searchNearby: async (query: NearbyRestaurantQuery): Promise<NearbyRestaurantResult[]> => {
+    const { lat, lng, radius = 10 } = query;
+    const response = await api.get(`/restaurants/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
+  },
+
+  searchNearbyWithFilters: async (
+    query: NearbyRestaurantQuery, 
+    filters?: { categoryId?: number; isOpen?: boolean }
+  ): Promise<NearbyRestaurantResult[]> => {
+    const { lat, lng, radius = 10 } = query;
+    let url = `/restaurants/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
+    
+    if (filters?.categoryId) {
+      url += `&categoryId=${filters.categoryId}`;
+    }
+    
+    const response = await api.get(url);
+    let results = response.data?.data || response.data || [];
+    
+    // Filtrar por estado abierto/cerrado si es necesario (lado cliente)
+    if (filters?.isOpen !== undefined && Array.isArray(results)) {
+      results = results.filter((location: any) => 
+        location.isCurrentlyOpen === filters.isOpen
+      );
+    }
+    
+    return results;
+  },
 };
 
 export default api;
