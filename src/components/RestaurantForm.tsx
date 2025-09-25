@@ -197,8 +197,6 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
       };
 
       const createdRestaurant = await create(submitData);
-      console.log('Created restaurant:', createdRestaurant);
-      console.log('Restaurant ID:', createdRestaurant?.id);
 
       // Step 2: Create restaurant locations
       const locationPromises = locations.map((location, index) => {
@@ -220,7 +218,6 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
           restaurant: restaurantId, // Backend expects restaurant ID
         };
 
-        console.log(`Creating location ${index + 1} with payload:`, locationData);
         return restaurantLocationsService.create(locationData);
       });
 

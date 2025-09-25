@@ -14,21 +14,25 @@ A modern, professional restaurant management system built with React, TypeScript
 - **Professional Color Palette** - Custom primary, secondary, success, warning, and danger colors
 - **Smooth Animations** - Subtle fade-ins, hover effects, and micro-interactions
 - **Responsive Design** - Mobile-first approach that works on all devices
+- **Visual State Indicators** - Color-coded status indicators for active/inactive items
 
 ### 🏗️ **Core Functionality**
 - **Authentication System** - Secure login with beautiful UI
 - **Dashboard Overview** - Comprehensive stats cards and system monitoring
-- **Restaurant Management** - Add, edit, and manage restaurant profiles
+- **Restaurant Management** - Complete CRUD operations with soft delete support
+- **Location Management** - Multi-location restaurant support with geographic hierarchy
+- **Smart Filtering** - Advanced filtering for active/inactive items across all modules
 - **User Management** - Role-based access control with permission management
-- **Data Tables** - Professional tables with sorting and filtering
+- **Data Tables** - Professional tables with sorting, filtering, and visual status indicators
 - **Responsive Navigation** - Collapsible sidebar with modern icons
 
 ### 🛠️ **Technical Features**
 - **TypeScript Support** - Full type safety throughout the application
 - **Component Library** - Reusable UI components (Cards, Buttons, Inputs, Tables)
 - **Modern Routing** - React Router v7 with protected routes
-- **API Integration** - Axios-based API service layer
+- **API Integration** - Axios-based API service layer with comprehensive error handling
 - **Build Optimization** - Vite for fast development and production builds
+- **Soft Delete System** - Non-destructive data management with recovery capabilities
 
 ## 🚀 Quick Start
 
@@ -73,20 +77,28 @@ src/
 │   │   ├── Card.tsx     # Professional card component
 │   │   ├── Button.tsx   # Multi-variant button component
 │   │   ├── Input.tsx    # Form input with validation
-│   │   └── Table.tsx    # Data table with sorting
+│   │   ├── Table.tsx    # Data table with sorting & filtering
+│   │   ├── Modal.tsx    # Modal dialog component
+│   │   ├── Toast.tsx    # Success/error notifications
+│   │   └── ConfirmDialog.tsx # Confirmation dialogs
 │   ├── Layout.tsx       # Main layout wrapper
 │   ├── Sidebar.tsx      # Navigation sidebar
-│   └── ProtectedRoute.tsx # Route protection
+│   ├── ProtectedRoute.tsx # Route protection
+│   ├── RestaurantForm.tsx # Restaurant creation form
+│   ├── RestaurantDetailsModal.tsx # Restaurant details view
+│   └── EditRestaurantModal.tsx # Restaurant edit form
 ├── pages/               # Page components
 │   ├── Login.tsx        # Authentication page
-│   ├── Dashboard.tsx    # Main dashboard
-│   ├── Restaurants.tsx  # Restaurant management
+│   ├── Dashboard.tsx    # Main dashboard with stats
+│   ├── Restaurants.tsx  # Restaurant management with filtering
+│   ├── RestaurantLocations.tsx # Location management system
+│   ├── Categories.tsx   # Category management
 │   ├── Users.tsx        # User management
 │   └── ...
 ├── contexts/            # React contexts
 │   └── AuthContext.tsx  # Authentication state
 ├── services/            # API services
-│   └── api.ts          # HTTP client and services
+│   └── api.ts          # HTTP client and all services
 ├── types/               # TypeScript type definitions
 │   └── index.ts        # Shared interfaces
 └── App.tsx             # Main app component
@@ -143,6 +155,29 @@ xl:  1280px  # Laptops
 2xl: 1536px  # Large screens
 ```
 
+## 🛡️ Soft Delete System
+
+A comprehensive soft delete system ensures data integrity and recovery:
+
+### 🔄 **Core Features**
+- **Non-Destructive Deletion**: Items are marked as inactive instead of permanent deletion
+- **Visual Differentiation**: Inactive items display with grayed-out styling and clear indicators
+- **Smart Filtering**: Toggle between showing active-only or all items
+- **Cascade Soft Delete**: Restaurant deletion automatically soft-deletes related locations
+- **Recovery Ready**: Soft-deleted items remain in database for potential recovery
+
+### 🎨 **Visual Indicators**
+- **Inactive Items**: Grayed icons, struck-through text, "Inactiva" badges
+- **Filter Controls**: Checkbox toggles to show/hide inactive items
+- **Count Displays**: Clear indication of active vs total items
+- **Status Badges**: Color-coded status indicators throughout the UI
+
+### 📊 **Affected Modules**
+- **Restaurant Management**: Soft delete restaurants with cascade to locations
+- **Location Management**: Individual location soft delete with visual feedback
+- **Restaurant Details**: Filtered views showing only active locations
+- **All Restaurants View**: Consistent filtering across all restaurant displays
+
 ## 🔐 Authentication
 
 The app includes a complete authentication system:
@@ -167,10 +202,14 @@ Password: your-password
 - **System Status**: Real-time health monitoring
 
 ### 🍽️ Restaurant Management
-- **Restaurant Profiles**: Complete restaurant information
-- **Location Management**: Multiple location support
-- **Category Organization**: Restaurant categorization
-- **Status Tracking**: Active/inactive status management
+- **Restaurant Profiles**: Complete restaurant information with image support
+- **Multi-Location System**: Advanced location management with geographic hierarchy
+- **Smart Filtering**: Filter active/inactive restaurants and locations
+- **Visual Status Indicators**: Color-coded status with inactive item styling
+- **Soft Delete Protection**: Non-destructive deletion with recovery capabilities
+- **Category Organization**: Restaurant categorization with filtering
+- **Location Details View**: Comprehensive location information with maps integration
+- **Batch Operations**: Efficient management of multiple locations
 
 ### 👥 User Management
 - **User Accounts**: Complete user profile management
@@ -227,10 +266,23 @@ POST /api/users/login
 GET  /api/users/profile
 
 // Restaurant Management  
-GET    /api/restaurants
-POST   /api/restaurants
-PUT    /api/restaurants/:id
-DELETE /api/restaurants/:id
+GET    /api/restaurants              # Get all restaurants with locations
+POST   /api/restaurants              # Create new restaurant
+PUT    /api/restaurants/:id          # Update restaurant
+DELETE /api/restaurants/:id          # Soft delete restaurant (cascade)
+
+// Location Management
+GET    /api/restaurants/locations    # Get all locations
+GET    /api/restaurants/:id/locations # Get locations by restaurant
+POST   /api/restaurants/locations    # Create new location
+PUT    /api/restaurants/locations/:id # Update location
+DELETE /api/restaurants/locations/:id # Soft delete location
+
+// Category Management
+GET    /api/categories               # Get all categories
+POST   /api/categories               # Create category
+PUT    /api/categories/:id           # Update category
+DELETE /api/categories/:id           # Soft delete category
 ```
 
 ## 🚀 Deployment
@@ -280,6 +332,30 @@ If you have any questions or need help:
 - 📧 Email: support@restaurantos.com
 - 🐛 Issues: [GitHub Issues](https://github.com/your-repo/issues)
 - 📖 Documentation: [Full Documentation](https://docs.restaurantos.com)
+
+## 🆕 Recent Updates
+
+### Version 2.1.0 - Enhanced Location Management
+
+#### 🎆 **New Features**
+- **🛡️ Comprehensive Soft Delete System**: Non-destructive data management across all modules
+- **📍 Advanced Location Management**: Multi-location restaurant support with geographic hierarchy
+- **🎨 Visual Status Indicators**: Color-coded inactive items with clear visual differentiation
+- **⚙️ Smart Filtering Controls**: Toggle visibility of active/inactive items throughout the UI
+- **🔄 Cascade Operations**: Restaurant deletion automatically handles related locations
+
+#### 🐛 **Bug Fixes & Improvements**
+- **🧙 Console Cleanup**: Removed debug logs while preserving error handling
+- **📊 Accurate Counters**: Fixed location counts to show only active items by default
+- **🔧 API Error Handling**: Enhanced error management in location operations
+- **📱 Responsive Design**: Improved mobile experience for location management
+- **⚡ Performance**: Optimized filtering and state management
+
+#### 📦 **Technical Enhancements**
+- Enhanced API service layer with comprehensive error handling
+- Improved TypeScript definitions for location management
+- Better state management for filtered views
+- Consistent UI patterns across all management modules
 
 ## 🙏 Acknowledgments
 

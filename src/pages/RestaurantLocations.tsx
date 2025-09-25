@@ -116,6 +116,9 @@ const RestaurantLocations: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
+  // Filter state
+  const [showInactiveLocations, setShowInactiveLocations] = useState(false);
+
   // Load restaurants on component mount
   useEffect(() => {
     loadRestaurants();
@@ -423,17 +426,54 @@ const RestaurantLocations: React.FC = () => {
 
     setIsDeleting(true);
     try {
-      await restaurantLocationsService.delete(locationToDelete.id);
-      setSuccessMessage(`Ubicación eliminada exitosamente`);
+      // Use soft delete instead of permanent delete
+      const updatedLocation = await restaurantLocationsService.softDelete(locationToDelete.id);
+      
+      // Update local state immediately with the result
+      setLocations(prevLocations => 
+        prevLocations.map(loc => 
+          loc.id === locationToDelete.id 
+            ? { ...loc, active: false }  // Mark as inactive locally
+            : loc
+        )
+      );
+      
+      setSuccessMessage(`Ubicación "${locationToDelete.address}" desactivada exitosamente`);
       setShowSuccessToast(true);
       setDeleteConfirmOpen(false);
       setLocationToDelete(null);
+      
+      // Force refresh in the background to sync with server
       if (selectedRestaurant) {
-        await loadRestaurantLocations(selectedRestaurant.id); // Refresh locations
+        try {
+          await forceRefreshRestaurantLocations(selectedRestaurant.id);
+        } catch (refreshError) {
+          console.warn('Failed to refresh locations from server, but local state updated:', refreshError);
+        }
       }
-    } catch (error) {
-      console.error('Error deleting location:', error);
-      alert('Error al eliminar la ubicación. Por favor, inténtalo de nuevo.');
+    } catch (error: any) {
+      console.error('Error soft deleting location:', error);
+      
+      // Check if it was a server error but the local fallback worked
+      if (error?.message?.includes('soft delete failed on server')) {
+        // The API returned a local fallback, update local state
+        setLocations(prevLocations => 
+          prevLocations.map(loc => 
+            loc.id === locationToDelete.id 
+              ? { ...loc, active: false }  // Mark as inactive locally
+              : loc
+          )
+        );
+        
+        setSuccessMessage(`Ubicación "${locationToDelete.address}" desactivada localmente (problema con servidor)`);
+        setShowSuccessToast(true);
+        setDeleteConfirmOpen(false);
+        setLocationToDelete(null);
+      } else {
+        // Real error, show error message
+        const errorMessage = error?.message || 'Error desconocido';
+        alert(`Error al desactivar la ubicación: ${errorMessage}`);
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -462,24 +502,47 @@ const RestaurantLocations: React.FC = () => {
     setLocationToEdit(null);
   };
 
-  // Since we're showing locations for a specific restaurant, we don't need filtering
+  // Filter locations based on active/inactive status
+  const filteredLocations = locations.filter(location => {
+    if (showInactiveLocations) {
+      return true; // Show all locations (active and inactive)
+    } else {
+      return location.active !== false; // Show only active locations (active === true or undefined)
+    }
+  });
 
   // Table columns - removed restaurant column since we're showing locations for one restaurant
+
   const columns = [
     {
       key: 'address',
       label: 'Address',
       sortable: true,
-      render: (value: string) => (
+      render: (value: string, row: RestaurantLocation) => (
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
+          <div className={`w-8 h-8 bg-gradient-to-br rounded-lg flex items-center justify-center text-white font-semibold text-sm ${
+            row.active === false 
+              ? 'from-neutral-400 to-neutral-500' 
+              : 'from-secondary-500 to-secondary-600'
+          }`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <div>
-            <p className="font-medium text-neutral-900">{value}</p>
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <p className={`font-medium ${
+                row.active === false 
+                  ? 'text-neutral-500 line-through' 
+                  : 'text-neutral-900'
+              }`}>{value}</p>
+              {row.active === false && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  Inactiva
+                </span>
+              )}
+            </div>
           </div>
         </div>
       ),
@@ -552,7 +615,7 @@ const RestaurantLocations: React.FC = () => {
             variant="ghost"
             size="sm"
             onClick={() => handleDeleteLocation(row)}
-            title="Delete location"
+            title="Desactivar ubicación"
             className="text-red-600 hover:text-red-700 hover:bg-red-50"
             icon={
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -677,20 +740,37 @@ const RestaurantLocations: React.FC = () => {
           <Card variant="elevated" className="overflow-hidden">
             <div className="p-6 border-b border-neutral-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-neutral-900">
-                  Locations for {selectedRestaurant.name}
-                </h3>
-                {locationsLoading && (
-                  <div className="flex items-center space-x-2 text-neutral-600">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-                    <span className="text-sm">Loading locations...</span>
+                <div className="flex items-center space-x-4">
+                  <h3 className="text-lg font-semibold text-neutral-900">
+                    Locations for {selectedRestaurant.name}
+                  </h3>
+                  <div className="text-sm text-neutral-600">
+                    ({filteredLocations.length} of {locations.length} locations)
                   </div>
-                )}
+                </div>
+                <div className="flex items-center space-x-4">
+                  {/* Filtro para mostrar ubicaciones inactivas */}
+                  <label className="flex items-center space-x-2 text-sm text-neutral-600">
+                    <input
+                      type="checkbox"
+                      checked={showInactiveLocations}
+                      onChange={(e) => setShowInactiveLocations(e.target.checked)}
+                      className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                    <span>Show inactive locations</span>
+                  </label>
+                  {locationsLoading && (
+                    <div className="flex items-center space-x-2 text-neutral-600">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                      <span className="text-sm">Loading locations...</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <Table
               columns={columns}
-              data={locations}
+              data={filteredLocations}
               variant="striped"
               emptyMessage={`No locations found for ${selectedRestaurant.name}. Add the first location to get started.`}
             />
@@ -753,7 +833,7 @@ const RestaurantLocations: React.FC = () => {
           />
         </Modal>
 
-        {/* Delete Confirmation Dialog */}
+        {/* Soft Delete Confirmation Dialog */}
         <ConfirmDialog
           isOpen={deleteConfirmOpen}
           onClose={() => {
@@ -761,11 +841,11 @@ const RestaurantLocations: React.FC = () => {
             setLocationToDelete(null);
           }}
           onConfirm={handleConfirmedDelete}
-          title="Delete Location"
-          message={`Are you sure you want to delete this location "${locationToDelete?.address}"? This action cannot be undone.`}
-          confirmText="Yes, Delete"
-          cancelText="Cancel"
-          type="danger"
+          title="Desactivar Ubicación"
+          message={`¿Estás seguro de que deseas eliminar la ubicación "${locationToDelete?.address}"?.`}
+          confirmText="Sí, Desactivar"
+          cancelText="Cancelar"
+          type="warning"
           loading={isDeleting}
         />
 

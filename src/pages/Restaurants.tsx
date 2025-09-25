@@ -42,7 +42,6 @@ const Restaurants: React.FC = () => {
 
     setIsDeleting(true);
     try {
-      console.log('Starting cascade soft delete for restaurant:', restaurantToDelete.id);
       
       // Store restaurant name for success message
       const restaurantName = restaurantToDelete.name;
@@ -50,7 +49,6 @@ const Restaurants: React.FC = () => {
       // The backend now handles all cascade soft delete logic
       // This will soft delete: restaurant, dishes, menus, and locations
       await restaurantsService.softDelete(restaurantToDelete.id);
-      console.log('Cascade soft delete completed for restaurant:', restaurantName);
       
       // Close modal and reset states
       setDeleteConfirmOpen(false);
@@ -84,14 +82,12 @@ const Restaurants: React.FC = () => {
 
   // Handle view restaurant details
   const handleViewDetails = (restaurant: Restaurant) => {
-    console.log('Opening details modal for restaurant:', restaurant);
     setSelectedRestaurant(restaurant);
     setIsDetailsModalOpen(true);
   };
 
   // Handle edit restaurant
   const handleEditRestaurant = (restaurant: Restaurant) => {
-    console.log('Opening edit modal for restaurant:', restaurant);
     setRestaurantToEdit(restaurant);
     setIsEditModalOpen(true);
   };
@@ -193,17 +189,28 @@ const Restaurants: React.FC = () => {
       key: 'locations',
       label: 'Locations',
       render: (value: any) => {
-        const locations = Array.isArray(value) ? value : [];
-        const locationCount = locations.length;
+        const allLocations = Array.isArray(value) ? value : [];
+        // Filter out inactive locations (only show active ones)
+        const activeLocations = allLocations.filter(location => location.active !== false);
+        const locationCount = activeLocations.length;
+        const totalLocations = allLocations.length;
+        const inactiveCount = totalLocations - locationCount;
 
         if (locationCount === 0) {
           return (
-            <span className="text-neutral-500 italic">No locations</span>
+            <div className="space-y-1">
+              <span className="text-neutral-500 italic">No active locations</span>
+              {inactiveCount > 0 && (
+                <span className="text-xs text-neutral-400 block">
+                  ({inactiveCount} inactive location{inactiveCount > 1 ? 's' : ''})
+                </span>
+              )}
+            </div>
           );
         }
 
-        // Show first location address and count if multiple
-        const firstLocation = locations[0];
+        // Show first active location address and count if multiple
+        const firstLocation = activeLocations[0];
         const address = firstLocation?.address || 'Unknown address';
 
         return (
@@ -217,11 +224,18 @@ const Restaurants: React.FC = () => {
                 {address}
               </span>
             </div>
-            {locationCount > 1 && (
-              <span className="text-xs text-neutral-500">
-                +{locationCount - 1} more location{locationCount > 2 ? 's' : ''}
-              </span>
-            )}
+            <div className="flex items-center space-x-2">
+              {locationCount > 1 && (
+                <span className="text-xs text-neutral-500">
+                  +{locationCount - 1} more active location{locationCount > 2 ? 's' : ''}
+                </span>
+              )}
+              {inactiveCount > 0 && (
+                <span className="text-xs text-neutral-400">
+                  ({inactiveCount} inactive)
+                </span>
+              )}
+            </div>
           </div>
         );
       },

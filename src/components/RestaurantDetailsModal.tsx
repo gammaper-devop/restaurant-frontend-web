@@ -14,13 +14,17 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
   restaurant,
 }) => {
   if (!restaurant) {
-    console.log('RestaurantDetailsModal: No restaurant provided');
     return null;
   }
 
   if (!isOpen) {
     return null;
   }
+
+  // Filter active locations only
+  const allLocations = Array.isArray(restaurant.locations) ? restaurant.locations : [];
+  const activeLocations = allLocations.filter(location => location.active !== false);
+  const inactiveCount = allLocations.length - activeLocations.length;
 
   const formatCoordinates = (lat: string | number, lng: string | number) => {
     const latNum = typeof lat === 'string' ? parseFloat(lat) : lat;
@@ -65,16 +69,16 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
                 {restaurant.category?.name || 'No category'}
               </span>
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                Array.isArray(restaurant.locations) && restaurant.locations.length > 0
+                activeLocations.length > 0
                   ? 'bg-success-100 text-success-800'
                   : 'bg-neutral-100 text-neutral-800'
               }`}>
                 <div className={`w-2 h-2 rounded-full mr-2 ${
-                  Array.isArray(restaurant.locations) && restaurant.locations.length > 0
+                  activeLocations.length > 0
                     ? 'bg-success-500'
                     : 'bg-neutral-400'
                 }`} />
-                {Array.isArray(restaurant.locations) && restaurant.locations.length > 0 ? 'Active' : 'Inactive'}
+                {activeLocations.length > 0 ? 'Active' : 'Inactive'}
               </span>
             </div>
             {/* Phone moved to RestaurantLocation */}
@@ -121,10 +125,15 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-neutral-600">Total Locations</label>
+                <label className="text-sm font-medium text-neutral-600">Active Locations</label>
                 <p className="text-2xl font-bold text-primary-600">
-                  {Array.isArray(restaurant.locations) ? restaurant.locations.length : 0}
+                  {activeLocations.length}
                 </p>
+                {inactiveCount > 0 && (
+                  <p className="text-xs text-neutral-500 mt-1">
+                    ({inactiveCount} inactive location{inactiveCount > 1 ? 's' : ''})
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-neutral-600">Created</label>
@@ -137,11 +146,11 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
               <div>
                 <label className="text-sm font-medium text-neutral-600">Status</label>
                 <p className={`inline-flex items-center px-2 py-1 rounded-full text-sm font-medium ${
-                  Array.isArray(restaurant.locations) && restaurant.locations.length > 0
+                  activeLocations.length > 0
                     ? 'bg-success-100 text-success-800'
                     : 'bg-neutral-100 text-neutral-800'
                 }`}>
-                  {Array.isArray(restaurant.locations) && restaurant.locations.length > 0 ? 'Active' : 'Inactive'}
+                  {activeLocations.length > 0 ? 'Active' : 'Inactive'}
                 </p>
               </div>
             </div>
@@ -154,14 +163,19 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
             <h3 className="text-lg font-semibold text-neutral-900 font-display">
               Restaurant Locations
             </h3>
-            <span className="text-sm text-neutral-500">
-              {Array.isArray(restaurant.locations) ? restaurant.locations.length : 0} location{(Array.isArray(restaurant.locations) && restaurant.locations.length !== 1) ? 's' : ''}
-            </span>
+            <div className="text-sm text-neutral-500">
+              <div>{activeLocations.length} active location{activeLocations.length !== 1 ? 's' : ''}</div>
+              {inactiveCount > 0 && (
+                <div className="text-xs text-neutral-400 mt-1">
+                  ({inactiveCount} inactive)
+                </div>
+              )}
+            </div>
           </div>
 
-          {Array.isArray(restaurant.locations) && restaurant.locations.length > 0 ? (
+          {activeLocations.length > 0 ? (
             <div className="space-y-4">
-              {restaurant.locations.map((location, index) => (
+              {activeLocations.map((location, index) => (
                 <div
                   key={location.id}
                   className="p-4 bg-white/50 backdrop-blur-sm rounded-xl border border-neutral-200/50"
@@ -228,7 +242,7 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
                           className="text-neutral-600 hover:text-neutral-700"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
                           Copy Coordinates
                         </Button>
@@ -244,8 +258,15 @@ const RestaurantDetailsModal: React.FC<RestaurantDetailsModalProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <h3 className="text-lg font-medium text-neutral-900 mb-2">No Locations</h3>
-              <p className="text-neutral-600">This restaurant doesn't have any registered locations yet.</p>
+              <h3 className="text-lg font-medium text-neutral-900 mb-2">
+                {allLocations.length === 0 ? 'No Locations' : 'No Active Locations'}
+              </h3>
+              <p className="text-neutral-600">
+                {allLocations.length === 0 
+                  ? "This restaurant doesn't have any registered locations yet."
+                  : `This restaurant has ${inactiveCount} inactive location${inactiveCount > 1 ? 's' : ''} but no active ones.`
+                }
+              </p>
             </div>
           )}
         </Card>

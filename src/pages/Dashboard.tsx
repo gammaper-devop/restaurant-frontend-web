@@ -7,10 +7,6 @@ const Dashboard: React.FC = () => {
   const { data: statsData, loading: statsLoading, error: statsError } = useDashboardStats();
   const { data: recentActivity, error: activityError } = useDashboardActivity();
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('Dashboard data:', { statsData, recentActivity, statsError, activityError });
-  }, [statsData, recentActivity, statsError, activityError]);
 
   // Define stats structure based on API data
   const stats = statsData ? [

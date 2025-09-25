@@ -88,7 +88,6 @@ export const authService = {
 export const usersService = {
   getAll: async (): Promise<User[]> => {
     const response = await api.get('/users');
-    console.log('Users API response:', response.data);
     const data = response.data?.data || response.data;
     return Array.isArray(data) ? data : [];
   },
@@ -126,7 +125,6 @@ export const usersService = {
 export const restaurantsService = {
   getAll: async (): Promise<Restaurant[]> => {
     const response = await api.get('/restaurants');
-    console.log('Restaurants API response:', response.data);
     // Manejar respuesta estructurada del backend
     const data = response.data?.data || response.data;
     return Array.isArray(data) ? data : [];
@@ -168,7 +166,6 @@ export const restaurantsService = {
 export const categoriesService = {
   getAll: async (): Promise<Category[]> => {
     const response = await api.get('/categories');
-    console.log('Categories API response:', response.data);
     const data = response.data?.data || response.data;
     return Array.isArray(data) ? data : [];
   },
@@ -206,7 +203,6 @@ export const categoriesService = {
 export const dishesService = {
   getAll: async (): Promise<Dish[]> => {
     const response = await api.get('/dishes');
-    console.log('Dishes API response:', response.data);
     const data = response.data?.data || response.data;
     return Array.isArray(data) ? data : [];
   },
@@ -249,7 +245,6 @@ export const dishesService = {
 export const menusService = {
   getAll: async (): Promise<Menu[]> => {
     const response = await api.get('/menus');
-    console.log('Menus API response:', response.data);
     const data = response.data?.data || response.data;
     return Array.isArray(data) ? data : [];
   },
@@ -418,6 +413,32 @@ export const restaurantLocationsService = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/restaurants/locations/${id}`);
+  },
+
+  softDelete: async (id: number): Promise<RestaurantLocation> => {
+    try {
+      // Get the current location data BEFORE soft deleting (while it's still active)
+      const currentLocation = await restaurantLocationsService.getById(id);
+      
+      // Use the existing DELETE endpoint - backend handles soft delete with EntityUtils.softDelete()
+      await api.delete(`/restaurants/locations/${id}`);
+      
+      // Backend soft delete succeeded, return the location data with active: false
+      // We use the data we got before deletion since getById won't find inactive entities
+      return {
+        ...currentLocation,
+        active: false
+      };
+    } catch (error: any) {
+      console.error('Soft delete failed:', error?.response?.data || error?.message);
+      
+      // Check if it's a "not found" error - might mean it's already inactive
+      if (error?.response?.status === 404) {
+        throw new Error('La ubicación no fue encontrada o ya está inactiva.');
+      }
+      
+      throw new Error('No se pudo desactivar la ubicación. Por favor, inténtalo de nuevo.');
+    }
   },
 
   // NUEVOS ENDPOINTS PARA OPERATING HOURS (¡anteriormente faltantes!)

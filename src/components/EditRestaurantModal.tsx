@@ -41,12 +41,6 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
   // Initialize form when restaurant changes
   useEffect(() => {
     if (restaurant && isOpen) {
-      console.log('Inicializando formulario con restaurant:', {
-        id: restaurant.id,
-        name: restaurant.name,
-        active: restaurant.active,
-        category: restaurant.category
-      });
       
       setFormData({
         name: restaurant.name || '',
@@ -60,7 +54,6 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
 
   // Handle form input changes
   const handleInputChange = (name: string, value: string | boolean) => {
-    console.log('Cambiando campo:', name, 'a valor:', value);
     setFormData(prev => ({
       ...prev,
       [name]: value,
@@ -82,8 +75,6 @@ const EditRestaurantModal: React.FC<EditRestaurantModalProps> = ({
       active: formData.active, // ¡IMPORTANTE: Incluir campo active!
     };
     
-    console.log('Datos a enviar al backend:', updateData);
-    console.log('Estado actual del formulario:', formData);
     
     if (formData.category_id) {
       updateData.category = { id: parseInt(formData.category_id) };

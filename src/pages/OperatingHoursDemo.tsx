@@ -271,7 +271,7 @@ const OperatingHoursDemo: React.FC = () => {
                     locationName="Sucursal Demo"
                     highlightCurrent={true}
                     showLegend={true}
-                    onDayClick={(day, schedule) => console.log('Día clickeado:', day, schedule)}
+onDayClick={(day, schedule) => {}}
                   />
                 </div>
                 <div>
@@ -281,7 +281,7 @@ const OperatingHoursDemo: React.FC = () => {
                     locationName="Sucursal Demo"
                     compact={true}
                     showLegend={false}
-                    onDayClick={(day, schedule) => console.log('Día clickeado:', day, schedule)}
+onDayClick={(day, schedule) => {}}
                   />
                   
                   <div className="mt-4 p-4 bg-green-50 rounded-lg">
