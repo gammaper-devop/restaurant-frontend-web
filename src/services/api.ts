@@ -200,6 +200,28 @@ export const categoriesService = {
 };
 
 // Dishes Service
+// Create dish DTO interface (alineado con el backend)
+interface CreateDishDto {
+  name: string;
+  description?: string;
+  image?: string;
+  price: number;
+  restaurant: {
+    id: number;
+  };
+}
+
+// Update dish DTO interface (alineado con el backend)
+interface UpdateDishDto {
+  name?: string;
+  description?: string;
+  image?: string;
+  price?: number;
+  restaurant?: {
+    id: number;
+  };
+}
+
 export const dishesService = {
   getAll: async (): Promise<Dish[]> => {
     const response = await api.get('/dishes');
@@ -209,22 +231,23 @@ export const dishesService = {
 
   getById: async (id: number): Promise<Dish> => {
     const response = await api.get(`/dishes/${id}`);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   getByRestaurant: async (restaurantId: number): Promise<Dish[]> => {
     const response = await api.get(`/dishes/restaurant/${restaurantId}`);
-    return response.data;
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
   },
 
-  create: async (dishData: Omit<Dish, 'id' | 'createdAt' | 'updatedAt'>): Promise<Dish> => {
+  create: async (dishData: CreateDishDto): Promise<Dish> => {
     const response = await api.post('/dishes', dishData);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
-  update: async (id: number, dishData: Partial<Dish>): Promise<Dish> => {
+  update: async (id: number, dishData: UpdateDishDto): Promise<Dish> => {
     const response = await api.put(`/dishes/${id}`, dishData);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   delete: async (id: number): Promise<void> => {
@@ -233,7 +256,7 @@ export const dishesService = {
 
   toggleActive: async (id: number): Promise<Dish> => {
     const response = await api.patch(`/dishes/${id}/toggle-active`);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   softDelete: async (id: number): Promise<void> => {
