@@ -11,6 +11,7 @@ import DishDetailsModal from '../components/DishDetailsModal';
 import { Dish, Restaurant } from '../types';
 import { DishFormData } from '../types/dishFormTypes';
 import { dishesService, restaurantsService } from '../services/api';
+import { getImageWithFallback } from '../utils/imageUtils';
 
 // El tipo DishFormData ahora se importa desde dishFormTypes.ts
 
@@ -183,23 +184,15 @@ const Dishes: React.FC = () => {
       className: 'w-16',
       render: (_value: string, dish: Dish) => (
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-100 border border-neutral-200">
-          {dish.image ? (
-            <img
-              src={dish.image}
-              alt={dish.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-          )}
+          <img
+            src={getImageWithFallback('dishes', dish.image)}
+            alt={dish.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2Utd2lkdGg9IjEiIGQ9Ik00IDE2bDQuNTg2LTQuNTg2YTIgMiAwIDAxMi44MjggMEwxNiAxNm0tMi0ybDEuNTg2LTEuNTg2YTIgMiAwIDAxMi44MjggMEwyMCAxNG0tNi02aC4wMU02IDIwaDEyYTIgMiAwIDAwMi0yVjZhMiAyIDAgMDAtMi0ySDZhMiAyIDAgMDAtMiAydjEyYTIgMiAwIDAwMiAyeiIgc3Ryb2tlPSIjOWNhM2FmIi8+Cjwvc3ZnPgo=';
+            }}
+          />
         </div>
       )
     },
