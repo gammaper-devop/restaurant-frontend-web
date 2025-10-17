@@ -123,7 +123,7 @@ const Users: React.FC = () => {
     {
       key: 'actions',
       label: 'Actions',
-      render: (_: any, row: any) => (
+      render: (_: any) => (
         <div className="flex items-center space-x-2">
           <Button
             variant="ghost"

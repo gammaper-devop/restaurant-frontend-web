@@ -21,7 +21,7 @@ const RestaurantSearchSelect: React.FC<RestaurantSearchSelectProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

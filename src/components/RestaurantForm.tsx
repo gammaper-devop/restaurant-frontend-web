@@ -199,7 +199,7 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSuccess, onCancel }) 
       const createdRestaurant = await create(submitData);
 
       // Step 2: Create restaurant locations
-      const locationPromises = locations.map((location, index) => {
+      const locationPromises = locations.map((location) => {
         // Extract restaurant ID from response
         const restaurantId = createdRestaurant?.id;
         

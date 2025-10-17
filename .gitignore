@@ -23,3 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.local
+.env.production
+
+# Vercel
+.vercel
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp

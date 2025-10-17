@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Card, Button, Table, Modal, Input, Select, SearchableSelect, ConfirmDialog, Toast } from '../components/ui';
-import { restaurantLocationsService, restaurantsService, locationsService } from '../services/api';
+import { restaurantLocationsService, restaurantsService } from '../services/api';
 import { OperatingHoursManager, OpenStatusIndicator } from '../components/operating-hours';
 import { OperatingHoursUtils } from '../utils';
 import { useCountries, useCitiesByCountry, useProvincesByCity, useDistrictsByProvince } from '../hooks';
@@ -25,6 +25,7 @@ interface LocationFormData {
 }
 
 // Helper function to create fallback geographic hierarchy
+/*
 const createFallbackGeographicHierarchy = (location: RestaurantLocation): any | null => {
   // Strategy 1: Try to use district info if available
   if (location?.district && location.district.id && location.district.id > 0) {
@@ -72,6 +73,7 @@ const createFallbackGeographicHierarchy = (location: RestaurantLocation): any | 
   
   return null;
 };
+*/
 
 const RestaurantLocations: React.FC = () => {
   // State for restaurants and selected restaurant
@@ -370,7 +372,7 @@ const RestaurantLocations: React.FC = () => {
 
       if (formData.isNew) {
         // Create new location - always requires full data
-        const result = await restaurantLocationsService.create(locationData);
+        await restaurantLocationsService.create(locationData);
         
         // Force refresh locations after creation (bypass cache)
         if (selectedRestaurant) {
@@ -427,7 +429,7 @@ const RestaurantLocations: React.FC = () => {
     setIsDeleting(true);
     try {
       // Use soft delete instead of permanent delete
-      const updatedLocation = await restaurantLocationsService.softDelete(locationToDelete.id);
+      await restaurantLocationsService.softDelete(locationToDelete.id);
       
       // Update local state immediately with the result
       setLocations(prevLocations => 
