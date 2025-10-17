@@ -21,7 +21,17 @@ import type {
   LocationTimeCheck
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+// Debugging: Force production API URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') 
+    ? 'https://restaurant-backend-6g8j.onrender.com/api'
+    : 'http://localhost:3000/api'
+  );
+
+// Debug logging
+console.log('🔧 API Configuration:');
+console.log('  Environment:', import.meta.env.VITE_API_BASE_URL);
+console.log('  Final URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
