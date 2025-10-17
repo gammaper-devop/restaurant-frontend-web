@@ -24,15 +24,17 @@ import type {
 // Enhanced API URL detection
 let API_BASE_URL;
 
-// Check environment variable first
-if (import.meta.env.VITE_API_BASE_URL) {
-  API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-} else if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-  // Force production URL for Vercel deployments
+// Force production URL for any Vercel deployment (temporary fix)
+if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
   API_BASE_URL = 'https://restaurant-backend-6g8j.onrender.com/api';
+  console.log('🎯 FORCED Production URL for Vercel');
+} else if (import.meta.env.VITE_API_BASE_URL) {
+  API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  console.log('🔧 Using environment variable');
 } else {
   // Default to localhost for development
   API_BASE_URL = 'http://localhost:3000/api';
+  console.log('🏠 Using localhost for development');
 }
 
 // Enhanced debug logging
