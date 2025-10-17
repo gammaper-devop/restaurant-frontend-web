@@ -63,7 +63,7 @@ api.interceptors.request.use(
       method: config.method?.toUpperCase(),
       url: config.url,
       baseURL: config.baseURL,
-      fullURL: config.baseURL + config.url,
+      fullURL: (config.baseURL || '') + (config.url || ''),
       data: config.data
     });
     
