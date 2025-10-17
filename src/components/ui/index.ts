@@ -10,3 +10,4 @@ export { default as ToggleButton } from './ToggleButton';
 export { default as StatusFilter, useStatusFilter } from './StatusFilter';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as Toast } from './Toast';
+export { default as DishImage } from './DishImage';
