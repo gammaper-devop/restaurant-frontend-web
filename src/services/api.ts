@@ -21,17 +21,27 @@ import type {
   LocationTimeCheck
 } from '../types';
 
-// Debugging: Force production API URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') 
-    ? 'https://restaurant-backend-6g8j.onrender.com/api'
-    : 'http://localhost:3000/api'
-  );
+// Enhanced API URL detection
+let API_BASE_URL;
 
-// Debug logging
-console.log('🔧 API Configuration:');
-console.log('  Environment:', import.meta.env.VITE_API_BASE_URL);
-console.log('  Final URL:', API_BASE_URL);
+// Check environment variable first
+if (import.meta.env.VITE_API_BASE_URL) {
+  API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+} else if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+  // Force production URL for Vercel deployments
+  API_BASE_URL = 'https://restaurant-backend-6g8j.onrender.com/api';
+} else {
+  // Default to localhost for development
+  API_BASE_URL = 'http://localhost:3000/api';
+}
+
+// Enhanced debug logging
+console.log('🔧 API Configuration Debug:');
+console.log('  Raw Environment:', import.meta.env.VITE_API_BASE_URL);
+console.log('  Current Hostname:', typeof window !== 'undefined' ? window.location.hostname : 'SSR');
+console.log('  Is Vercel?', typeof window !== 'undefined' ? window.location.hostname.includes('vercel.app') : false);
+console.log('  Final API URL:', API_BASE_URL);
+console.log('  All env vars:', import.meta.env);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -40,24 +50,49 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and debug logging
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Debug logging for requests
+    console.log('🚀 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: config.baseURL + config.url,
+      data: config.data
+    });
+    
     return config;
   },
   (error) => {
+    console.error('❌ Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor to handle token expiration
+// Response interceptor to handle token expiration and debug logging
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
+    });
+    return response;
+  },
   (error) => {
+    console.error('❌ API Error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      message: error.message,
+      data: error.response?.data
+    });
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
